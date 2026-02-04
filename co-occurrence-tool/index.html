@@ -1,0 +1,1928 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Co-occurrence Tool</title>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --panel: #f0f0f0;
+        --panel-2: #f7f7f7;
+        --border: #d0d0d0;
+        --text: #111;
+        --muted: #666;
+        --accent: #2b6cb0;
+        --danger: #b00020;
+        --ok: #1b7f3a;
+        --orange: #d9782a;
+        --shadow: 0 10px 20px rgba(0, 0, 0, 0.06);
+        --radius: 10px;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+          monospace;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        gap: 20px;
+        margin: 0;
+        padding: 20px;
+        font-family: sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        overflow: auto;
+      }
+
+      #left-panel,
+      #right-panel {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        gap: 14px;
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 14px;
+      }
+
+      #top-buttons {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      h1 {
+        font-size: 18px;
+        margin: 0;
+      }
+
+      h2 {
+        font-size: 14px;
+        margin: 0 0 10px 0;
+        color: var(--muted);
+        font-weight: 600;
+        letter-spacing: 0.2px;
+      }
+
+      .pill {
+        display: inline-block;
+        padding: 2px 8px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: #fff;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .muted {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      button,
+      input,
+      textarea {
+        font: inherit;
+      }
+
+      button {
+        border: 1px solid var(--border);
+        background: #fff;
+        border-radius: 8px;
+        padding: 8px 10px;
+        cursor: pointer;
+      }
+      button.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      button.orange {
+        background: var(--orange);
+        border-color: var(--orange);
+        color: #fff;
+      }
+      button.danger {
+        background: #fff;
+        border-color: var(--danger);
+        color: var(--danger);
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .scrollBox {
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: #fff;
+      }
+
+      #cohortScroll {
+        max-height: 360px;
+      }
+
+      #treeScroll {
+        max-height: 420px;
+      }
+
+      #resultsScroll {
+        max-height: 70vh;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      #resultsTable {
+        min-width: 980px;
+      }
+
+      thead th {
+        position: sticky;
+        top: 0;
+        background: #f2f2f2;
+        border-bottom: 1px solid #ddd;
+        font-size: 12px;
+        text-align: left;
+        padding: 8px;
+        white-space: nowrap;
+        user-select: none;
+      }
+      tbody td {
+        border-top: 1px solid #eee;
+        font-size: 12px;
+        padding: 7px 8px;
+        vertical-align: top;
+      }
+      tbody tr:hover {
+        background: #fafafa;
+      }
+
+      .row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .statusOk {
+        color: var(--ok);
+        font-weight: 700;
+      }
+      .statusBad {
+        color: var(--danger);
+        font-weight: 700;
+      }
+
+      /* Tree view (details/summary vibe like annotation tools) */
+      .tree {
+        padding: 8px 10px;
+      }
+      .tree details {
+        padding: 2px 0;
+      }
+      .tree summary {
+        cursor: pointer;
+        user-select: none;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 4px 0;
+      }
+      .tree summary.selected {
+        background: #e8f0ff;
+        border-radius: 8px;
+        padding-left: 6px;
+        margin-left: -6px;
+        margin-right: 4px;
+      }
+      .tree .nodeRow {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 4px 0 4px 22px;
+      }
+      .tree .nodeRow.selected {
+        background: #e8f0ff;
+        border-radius: 8px;
+        padding-left: 18px;
+        margin-left: 4px;
+        margin-right: 4px;
+      }
+      .tree .nodeLabel {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      /* Results table header actions */
+      .thInner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .thActions {
+        opacity: 0;
+        transition: opacity 120ms ease;
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+      th:hover .thActions {
+        opacity: 1;
+      }
+      .iconBtn {
+        border: 1px solid #cfcfcf;
+        background: #fff;
+        border-radius: 8px;
+        padding: 2px 6px;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      .iconBtn.activeFilter {
+        border-color: var(--accent);
+        color: var(--accent);
+        font-weight: 800;
+      }
+      .sortMark {
+        color: var(--muted);
+        font-size: 11px;
+        min-width: 14px;
+        text-align: right;
+      }
+      .filterMark {
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 900;
+        margin-left: 6px;
+      }
+
+      /* Modal */
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.4);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+      }
+      .modal {
+        background: #fff;
+        border-radius: 14px;
+        width: min(820px, 96vw);
+        box-shadow: 0 20px 45px rgba(0, 0, 0, 0.25);
+        border: 1px solid #ddd;
+        overflow: hidden;
+      }
+      .modalHeader {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 14px;
+        border-bottom: 1px solid #eee;
+      }
+      .modalTitle {
+        font-weight: 800;
+      }
+      .closeX {
+        border: 1px solid #ddd;
+        background: #fff;
+        border-radius: 999px;
+        width: 30px;
+        height: 30px;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+      }
+      .modalBody {
+        padding: 14px;
+      }
+      .field {
+        display: grid;
+        gap: 6px;
+        margin-bottom: 10px;
+      }
+      .field label {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .field input[type="text"] {
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 12px;
+        background: #fff;
+      }
+
+      .toolbar {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin: 8px 0 10px;
+      }
+      .toolbar .btnGroup {
+        display: flex;
+        gap: 0;
+        border: 1px solid #bbb;
+        border-radius: 10px;
+        overflow: hidden;
+        background: #fff;
+      }
+      .toolbar .btnGroup button {
+        border: none;
+        border-right: 1px solid #bbb;
+        border-radius: 0;
+        padding: 10px 16px;
+        background: #fff;
+      }
+      .toolbar .btnGroup button:last-child {
+        border-right: none;
+      }
+
+      .codeEditor {
+        border: 2px solid #222;
+        border-radius: 10px;
+        overflow: hidden;
+        background: #fff;
+      }
+      .codeEditorInner {
+        display: grid;
+        grid-template-columns: 52px 1fr;
+      }
+      .lineNums {
+        background: #fff;
+        border-right: 2px solid #222;
+        padding: 10px 0;
+        font-family: var(--mono);
+        font-size: 16px;
+        line-height: 1.45;
+        text-align: right;
+        color: #111;
+        user-select: none;
+        overflow: hidden;
+      }
+      .lineNums pre {
+        margin: 0;
+        padding: 0 10px;
+        white-space: pre;
+        will-change: transform;
+      }
+      textarea#scriptInput {
+        border: none;
+        outline: none;
+        padding: 10px 12px;
+        font-family: var(--mono);
+        font-size: 16px;
+        line-height: 1.45;
+        height: 280px;
+        resize: none;
+        width: 100%;
+        box-sizing: border-box;
+        overflow: auto;
+        white-space: pre;
+      }
+
+      .editorError {
+        margin-top: 10px;
+        color: var(--danger);
+        font-size: 16px;
+        font-weight: 700;
+      }
+
+      /* Filter popover */
+      #filterPopover {
+        position: fixed;
+        z-index: 60;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        box-shadow: var(--shadow);
+        padding: 10px;
+        width: 260px;
+        display: none;
+      }
+      #filterPopover h3 {
+        font-size: 12px;
+        margin: 0 0 8px 0;
+        color: var(--muted);
+      }
+      #filterPopover .row {
+        justify-content: space-between;
+        gap: 8px;
+        margin: 6px 0;
+      }
+      #filterPopover input[type="number"] {
+        width: 110px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 6px 8px;
+      }
+
+      progress {
+        width: 100%;
+        height: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="left-panel">
+      <div class="card">
+        <div class="row" style="justify-content: space-between; margin-bottom: 8px">
+          <h1>Co-occurrence Tool</h1>
+          <span id="dataStatus" class="pill">No file loaded</span>
+        </div>
+        <div id="top-buttons">
+          <button id="openBtn">📁 Open</button>
+          <input id="fileInput" type="file" accept=".json,application/json" style="display: none" />
+          <span id="dataMeta" class="muted"></span>
+        </div>
+        <div id="dataError" class="muted" style="color: var(--danger); margin-top: 8px; display: none"></div>
+      </div>
+
+      <div class="card" style="flex: 1; min-height: 0">
+        <div class="row" style="justify-content: space-between; margin-bottom: 10px">
+          <h2 style="margin: 0">Cohorts</h2>
+          <button id="addCohortBtn">Add cohort</button>
+        </div>
+        <div id="cohortScroll" class="scrollBox">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 52px">#</th>
+                <th>Name</th>
+                <th style="width: 160px">Status</th>
+                <th style="width: 230px">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="cohortTbody"></tbody>
+          </table>
+        </div>
+        <div class="muted" style="margin-top: 8px">
+          Add cohorts from the annotation tree, or write a custom boolean script in the cohort editor.
+        </div>
+      </div>
+
+      <div class="card" style="flex: 1; min-height: 0">
+        <div class="row" style="justify-content: space-between; margin-bottom: 10px">
+          <h2 style="margin: 0">Annotation tree</h2>
+          <button id="addFromTreeBtn" class="primary" disabled>Add cohorts</button>
+        </div>
+        <div class="muted" style="margin-bottom: 8px">Check items you want as cohorts (themes, codes, or subcodes).</div>
+        <div id="treeScroll" class="scrollBox">
+          <div id="treeBox" class="tree"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="right-panel">
+      <div class="card">
+        <h2>Run</h2>
+        <div class="row">
+          <button id="runBtn" class="primary" disabled>Compute co-occurrence</button>
+          <span id="runMeta" class="pill">No data</span>
+        </div>
+        <div style="margin-top: 10px">
+          <progress id="progress" value="0" max="1" style="display: none"></progress>
+          <div id="progressText" class="muted" style="margin-top: 6px"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row" style="justify-content: space-between; margin-bottom: 10px">
+          <h2 style="margin: 0">Results</h2>
+          <div class="row">
+            <button id="exportCsvBtn" disabled>Export CSV</button>
+            <button id="exportJsonBtn" disabled>Export JSON</button>
+            <button id="exportExcelBtn" disabled>Export Excel</button>
+          </div>
+        </div>
+        <div class="row" style="justify-content: space-between; margin-bottom: 8px">
+          <span id="tableMeta" class="muted"></span>
+          <span id="resultsHint" class="muted"></span>
+        </div>
+        <div id="resultsScroll" class="scrollBox">
+          <table id="resultsTable" style="display: none">
+            <thead>
+              <tr id="theadRow"></tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+          <div id="noResults" class="muted" style="padding: 10px">No results yet.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cohort editor modal -->
+    <div id="editorBackdrop" class="modal-backdrop">
+      <div id="editorModal" class="modal" role="dialog" aria-modal="true" onclick="event.stopPropagation()">
+        <div class="modalHeader">
+          <div class="modalTitle">Cohort editor</div>
+          <button id="closeEditorBtn" class="closeX" aria-label="Close">✕</button>
+        </div>
+        <div class="modalBody">
+          <div class="field">
+            <label>Name</label>
+            <input id="nameInput" type="text" />
+          </div>
+
+          <div class="toolbar">
+            <button id="openPickerBtn" class="orange">Annotation picker</button>
+            <div class="btnGroup" aria-label="Insert operators">
+              <button id="insAndBtn">AND</button>
+              <button id="insOrBtn">OR</button>
+              <button id="insNotBtn">NOT</button>
+              <button id="insLBtn">(</button>
+              <button id="insRBtn">)</button>
+            </div>
+          </div>
+
+          <div class="codeEditor">
+            <div class="codeEditorInner">
+              <div class="lineNums"><pre id="lineNums"></pre></div>
+              <textarea
+                id="scriptInput"
+                spellcheck="false"
+                wrap="off"
+                placeholder="(THEME='support') AND (CODE='addiction')"
+              ></textarea>
+            </div>
+          </div>
+          <div id="editorError" class="editorError" style="display: none"></div>
+          <div class="row" style="justify-content: flex-end; margin-top: 12px">
+            <button id="doneEditorBtn" class="primary">Done</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Annotation picker modal -->
+    <div id="pickerBackdrop" class="modal-backdrop">
+      <div
+        id="pickerModal"
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        style="width: min(560px, 94vw)"
+        onclick="event.stopPropagation()"
+      >
+        <div class="modalHeader">
+          <div class="modalTitle">Pick one annotation</div>
+          <button id="closePickerBtn" class="closeX" aria-label="Close">✕</button>
+        </div>
+        <div class="modalBody">
+          <div class="muted" style="margin-bottom: 10px">
+            Click a theme/code/subcode (single select), then press Add.
+          </div>
+          <div class="scrollBox" style="max-height: 360px">
+            <div id="pickerTree" class="tree"></div>
+          </div>
+          <div class="row" style="justify-content: flex-end; margin-top: 10px">
+            <button id="pickerAddBtn" class="primary" disabled>Add</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Column filter popover -->
+    <div id="filterPopover" role="dialog" aria-modal="false">
+      <h3 id="filterTitle">Filter</h3>
+      <div class="row">
+        <div class="muted">Min</div>
+        <input id="filterMin" type="number" step="any" />
+      </div>
+      <div class="row">
+        <div class="muted">Max</div>
+        <input id="filterMax" type="number" step="any" />
+      </div>
+      <div class="row" style="justify-content: flex-end; margin-top: 8px">
+        <button id="filterResetBtn">Reset</button>
+        <button id="filterApplyBtn" class="primary">Apply</button>
+      </div>
+    </div>
+
+    <script>
+      // ---------------------------
+      // Data extraction + parsing
+      // ---------------------------
+      function isPlainObject(value) {
+        return value && typeof value === "object" && !Array.isArray(value);
+      }
+
+      function extractDatapoints(json) {
+        if (Array.isArray(json)) return json;
+        if (isPlainObject(json) && Array.isArray(json.data)) return json.data;
+        if (isPlainObject(json)) {
+          for (const v of Object.values(json)) {
+            if (Array.isArray(v) && v.length && isPlainObject(v[0]) && "annotation" in v[0]) return v;
+          }
+        }
+        throw new Error(
+          "Could not find datapoints array. Expected a JSON array, or an object with a 'data' array (or another array of objects containing 'annotation')."
+        );
+      }
+
+      function normalizeAnnotationValue(value) {
+        if (value == null) return [];
+        if (Array.isArray(value)) return value.map((x) => String(x));
+        return [String(value)];
+      }
+
+      function parseAnnotationString(s) {
+        const raw = String(s ?? "").trim();
+        if (!raw) return { raw, theme: "", code: "", subcode: "" };
+        let theme = "";
+        let code = "";
+        let subcode = "";
+        const colonIdx = raw.indexOf(":");
+        if (colonIdx >= 0) {
+          theme = raw.slice(0, colonIdx).trim();
+          const rest = raw.slice(colonIdx + 1).trim();
+          const parts = rest.split(/\s*_\s*/);
+          code = (parts[0] ?? "").trim();
+          subcode = (parts.slice(1).join(" _ ") ?? "").trim();
+        } else {
+          code = raw;
+        }
+        return { raw, theme, code, subcode };
+      }
+
+      function buildIndex(datapoints) {
+        const themes = new Set();
+        const codes = new Set();
+        const subcodes = new Set();
+
+        const indexed = datapoints.map((dp, idx) => {
+          const annList = normalizeAnnotationValue(dp.annotation);
+          const parsed = annList.map(parseAnnotationString);
+
+          const themeSet = new Set();
+          const codeSet = new Set();
+          const subcodeSet = new Set();
+          for (const a of parsed) {
+            if (a.theme) themes.add(a.theme), themeSet.add(a.theme);
+            if (a.code) codes.add(a.code), codeSet.add(a.code);
+            if (a.subcode) subcodes.add(a.subcode), subcodeSet.add(a.subcode);
+          }
+
+          return { idx, original: dp, annotations: parsed, themeSet, codeSet, subcodeSet };
+        });
+
+        // hierarchy: theme -> code -> Set(subcodes)
+        const hierarchy = {};
+        for (const ctx of indexed) {
+          for (const a of ctx.annotations) {
+            const t = a.theme || "";
+            const c = a.code || "";
+            const s = a.subcode || "";
+            if (!t) continue;
+            if (!hierarchy[t]) hierarchy[t] = {};
+            if (!c) continue;
+            if (!hierarchy[t][c]) hierarchy[t][c] = new Set();
+            if (s) hierarchy[t][c].add(s);
+          }
+        }
+
+        return {
+          indexed,
+          themes: [...themes].sort((a, b) => a.localeCompare(b)),
+          codes: [...codes].sort((a, b) => a.localeCompare(b)),
+          subcodes: [...subcodes].sort((a, b) => a.localeCompare(b)),
+          hierarchy,
+        };
+      }
+
+      // ---------------------------
+      // Parser with line-aware errors
+      // ---------------------------
+      class ParseError extends Error {
+        constructor(message, index) {
+          super(message);
+          this.name = "ParseError";
+          this.index = typeof index === "number" ? index : 0;
+        }
+      }
+
+      function indexToLineCol(text, idx) {
+        const s = String(text ?? "");
+        const clamped = Math.max(0, Math.min(s.length, idx ?? 0));
+        let line = 1;
+        let col = 1;
+        for (let i = 0; i < clamped; i++) {
+          if (s[i] === "\n") {
+            line++;
+            col = 1;
+          } else {
+            col++;
+          }
+        }
+        return { line, col };
+      }
+
+      function tokenize(input) {
+        const s = String(input ?? "");
+        const tokens = [];
+        let i = 0;
+
+        const isAlpha = (c) => /[A-Za-z_]/.test(c);
+        const isAlnum = (c) => /[A-Za-z0-9_]/.test(c);
+
+        while (i < s.length) {
+          const c = s[i];
+          if (/\s/.test(c)) {
+            i++;
+            continue;
+          }
+          if (c === "(") {
+            tokens.push({ type: "LPAREN", i });
+            i++;
+            continue;
+          }
+          if (c === ")") {
+            tokens.push({ type: "RPAREN", i });
+            i++;
+            continue;
+          }
+          if (c === "=") {
+            tokens.push({ type: "EQ", i });
+            i++;
+            continue;
+          }
+          if (c === "'" || c === '"') {
+            const quote = c;
+            const start = i;
+            i++;
+            let out = "";
+            while (i < s.length) {
+              const ch = s[i];
+              if (ch === "\\") {
+                const next = s[i + 1];
+                if (next == null) break;
+                out += next;
+                i += 2;
+                continue;
+              }
+              if (ch === quote) {
+                i++;
+                tokens.push({ type: "STRING", value: out, i: start });
+                out = null;
+                break;
+              }
+              out += ch;
+              i++;
+            }
+            if (out !== null) throw new ParseError("Unterminated string.", start);
+            continue;
+          }
+          if (isAlpha(c)) {
+            const start = i;
+            i++;
+            while (i < s.length && isAlnum(s[i])) i++;
+            const raw = s.slice(start, i);
+            const upper = raw.toUpperCase();
+            if (upper === "AND" || upper === "OR" || upper === "NOT") tokens.push({ type: upper, i: start });
+            else tokens.push({ type: "IDENT", value: upper, i: start });
+            continue;
+          }
+          throw new ParseError(`Unexpected character '${c}'.`, i);
+        }
+
+        tokens.push({ type: "EOF", i: s.length });
+        return tokens;
+      }
+
+      function parseExpression(input) {
+        const tokens = tokenize(input);
+        let pos = 0;
+
+        const peek = () => tokens[pos];
+        const take = (type) => {
+          const t = tokens[pos];
+          if (t.type !== type) throw new ParseError(`Expected ${type}, got ${t.type}.`, t.i);
+          pos++;
+          return t;
+        };
+
+        const parsePrimary = () => {
+          const t = peek();
+          if (t.type === "LPAREN") {
+            take("LPAREN");
+            const e = parseOr();
+            if (peek().type !== "RPAREN") throw new ParseError("Missing ')'.", peek().i);
+            take("RPAREN");
+            return e;
+          }
+          return parsePredicate();
+        };
+
+        const parsePredicate = () => {
+          const fieldTok = take("IDENT");
+          const field = fieldTok.value;
+          if (field !== "THEME" && field !== "CODE" && field !== "SUBCODE") {
+            throw new ParseError(`Unknown field '${fieldTok.value}'. Use THEME, CODE, or SUBCODE.`, fieldTok.i);
+          }
+          take("EQ");
+          const strTok = take("STRING");
+          return { type: "PRED", field, value: strTok.value };
+        };
+
+        const parseNot = () => {
+          if (peek().type === "NOT") {
+            take("NOT");
+            return { type: "NOT", expr: parseNot() };
+          }
+          return parsePrimary();
+        };
+
+        const parseAnd = () => {
+          let left = parseNot();
+          while (peek().type === "AND") {
+            take("AND");
+            const right = parseNot();
+            left = { type: "AND", left, right };
+          }
+          return left;
+        };
+
+        const parseOr = () => {
+          let left = parseAnd();
+          while (peek().type === "OR") {
+            take("OR");
+            const right = parseAnd();
+            left = { type: "OR", left, right };
+          }
+          return left;
+        };
+
+        const expr = parseOr();
+        if (peek().type !== "EOF") throw new ParseError(`Unexpected token ${peek().type}.`, peek().i);
+        return expr;
+      }
+
+      function evalAst(ast, ctx) {
+        switch (ast.type) {
+          case "PRED":
+            if (ast.field === "THEME") return ctx.themeSet.has(ast.value);
+            if (ast.field === "CODE") return ctx.codeSet.has(ast.value);
+            if (ast.field === "SUBCODE") return ctx.subcodeSet.has(ast.value);
+            return false;
+          case "NOT":
+            return !evalAst(ast.expr, ctx);
+          case "AND":
+            return evalAst(ast.left, ctx) && evalAst(ast.right, ctx);
+          case "OR":
+            return evalAst(ast.left, ctx) || evalAst(ast.right, ctx);
+          default:
+            return false;
+        }
+      }
+
+      // ---------------------------
+      // Co-occurrence metrics
+      // ---------------------------
+      function phi(n11, n10, n01, n00) {
+        const n1_ = n11 + n10;
+        const n0_ = n01 + n00;
+        const n_1 = n11 + n01;
+        const n_0 = n10 + n00;
+        const denom = Math.sqrt(n1_ * n0_ * n_1 * n_0);
+        if (!denom) return 0;
+        return (n11 * n00 - n10 * n01) / denom;
+      }
+
+      function clampNumber(x) {
+        const n = Number(x);
+        return Number.isFinite(n) ? n : 0;
+      }
+
+      // ---------------------------
+      // State + helpers
+      // ---------------------------
+      const els = {
+        openBtn: document.getElementById("openBtn"),
+        fileInput: document.getElementById("fileInput"),
+        dataStatus: document.getElementById("dataStatus"),
+        dataMeta: document.getElementById("dataMeta"),
+        dataError: document.getElementById("dataError"),
+
+        cohortTbody: document.getElementById("cohortTbody"),
+        addCohortBtn: document.getElementById("addCohortBtn"),
+
+        treeBox: document.getElementById("treeBox"),
+        addFromTreeBtn: document.getElementById("addFromTreeBtn"),
+
+        runBtn: document.getElementById("runBtn"),
+        runMeta: document.getElementById("runMeta"),
+        progress: document.getElementById("progress"),
+        progressText: document.getElementById("progressText"),
+
+        exportCsvBtn: document.getElementById("exportCsvBtn"),
+        exportJsonBtn: document.getElementById("exportJsonBtn"),
+        exportExcelBtn: document.getElementById("exportExcelBtn"),
+        tableMeta: document.getElementById("tableMeta"),
+        resultsHint: document.getElementById("resultsHint"),
+        resultsTable: document.getElementById("resultsTable"),
+        theadRow: document.getElementById("theadRow"),
+        tbody: document.getElementById("tbody"),
+        noResults: document.getElementById("noResults"),
+
+        editorBackdrop: document.getElementById("editorBackdrop"),
+        closeEditorBtn: document.getElementById("closeEditorBtn"),
+        nameInput: document.getElementById("nameInput"),
+        scriptInput: document.getElementById("scriptInput"),
+        lineNums: document.getElementById("lineNums"),
+        editorError: document.getElementById("editorError"),
+        doneEditorBtn: document.getElementById("doneEditorBtn"),
+        openPickerBtn: document.getElementById("openPickerBtn"),
+        insAndBtn: document.getElementById("insAndBtn"),
+        insOrBtn: document.getElementById("insOrBtn"),
+        insNotBtn: document.getElementById("insNotBtn"),
+        insLBtn: document.getElementById("insLBtn"),
+        insRBtn: document.getElementById("insRBtn"),
+
+        pickerBackdrop: document.getElementById("pickerBackdrop"),
+        closePickerBtn: document.getElementById("closePickerBtn"),
+        pickerTree: document.getElementById("pickerTree"),
+        pickerAddBtn: document.getElementById("pickerAddBtn"),
+
+        filterPopover: document.getElementById("filterPopover"),
+        filterTitle: document.getElementById("filterTitle"),
+        filterMin: document.getElementById("filterMin"),
+        filterMax: document.getElementById("filterMax"),
+        filterResetBtn: document.getElementById("filterResetBtn"),
+        filterApplyBtn: document.getElementById("filterApplyBtn"),
+      };
+
+      const state = {
+        datapoints: null,
+        index: null,
+
+        cohorts: [],
+        activeEditorId: null,
+
+        treeChecks: new Set(), // keys like THEME::x / CODE::y / SUBCODE::z
+        pickerSelectedKey: null,
+
+        results: null,
+        sort: { key: "n11", dir: "desc" },
+        filters: {},
+        filterEditingKey: null,
+      };
+
+      function setDataError(msg) {
+        if (!msg) {
+          els.dataError.style.display = "none";
+          els.dataError.textContent = "";
+          return;
+        }
+        els.dataError.style.display = "block";
+        els.dataError.textContent = msg;
+      }
+
+      function escapeSingleQuotes(s) {
+        return String(s ?? "").replaceAll("\\", "\\\\").replaceAll("'", "\\'");
+      }
+
+      function newCohort({ name, script }) {
+        const id = crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2);
+        const cohort = {
+          id,
+          name: name ?? `Cohort ${state.cohorts.length + 1}`,
+          script: script ?? "",
+          valid: false,
+          error: "Empty script.",
+          errorLine: null,
+          ast: null,
+        };
+        compileCohort(cohort);
+        return cohort;
+      }
+
+      function compileCohort(cohort) {
+        const script = String(cohort.script ?? "");
+        if (!script.trim()) {
+          cohort.valid = false;
+          cohort.error = "Empty script.";
+          cohort.errorLine = 1;
+          cohort.ast = null;
+          return cohort;
+        }
+        try {
+          cohort.ast = parseExpression(script);
+          cohort.valid = true;
+          cohort.error = "";
+          cohort.errorLine = null;
+        } catch (e) {
+          cohort.ast = null;
+          cohort.valid = false;
+          const idx = e && typeof e.index === "number" ? e.index : 0;
+          const lc = indexToLineCol(script, idx);
+          cohort.errorLine = lc.line;
+          cohort.error = `${String(e && e.message ? e.message : e)} (line ${lc.line})`;
+        }
+        return cohort;
+      }
+
+      function updateRunUi() {
+        const hasData = !!state.index;
+        const valid = state.cohorts.filter((c) => c.valid);
+        const invalid = state.cohorts.filter((c) => !c.valid);
+        els.runBtn.disabled = !(hasData && valid.length >= 2);
+        els.runMeta.textContent = hasData
+          ? `${state.index.indexed.length} datapoints • ${valid.length} valid • ${invalid.length} invalid`
+          : "No data";
+      }
+
+      function renderCohorts() {
+        els.cohortTbody.innerHTML = "";
+
+        if (!state.cohorts.length) {
+          const tr = document.createElement("tr");
+          const td = document.createElement("td");
+          td.colSpan = 4;
+          td.className = "muted";
+          td.style.padding = "10px";
+          td.textContent = "No cohorts yet. Use the annotation tree, or press “Add cohort”.";
+          tr.appendChild(td);
+          els.cohortTbody.appendChild(tr);
+          updateRunUi();
+          return;
+        }
+
+        state.cohorts.forEach((c, idx) => {
+          const tr = document.createElement("tr");
+
+          const tdIdx = document.createElement("td");
+          tdIdx.textContent = String(idx + 1);
+
+          const tdName = document.createElement("td");
+          tdName.textContent = c.name || `Cohort ${idx + 1}`;
+
+          const tdStatus = document.createElement("td");
+          tdStatus.textContent = c.valid ? "OK" : `Error (line ${c.errorLine ?? "?"})`;
+          tdStatus.className = c.valid ? "statusOk" : "statusBad";
+          tdStatus.title = c.valid ? "" : c.error;
+
+          const tdActions = document.createElement("td");
+          const row = document.createElement("div");
+          row.className = "row";
+          row.style.gap = "8px";
+
+          const dup = document.createElement("button");
+          dup.textContent = "Duplicate";
+          dup.addEventListener("click", () => {
+            const copy = newCohort({ name: `${c.name} (copy)`, script: c.script });
+            state.cohorts.push(copy);
+            renderCohorts();
+            updateRunUi();
+          });
+
+          const edit = document.createElement("button");
+          edit.textContent = "Edit";
+          edit.addEventListener("click", () => openEditor(c.id));
+
+          const del = document.createElement("button");
+          del.textContent = "Delete";
+          del.className = "danger";
+          del.addEventListener("click", () => {
+            state.cohorts = state.cohorts.filter((x) => x.id !== c.id);
+            if (state.activeEditorId === c.id) closeEditor();
+            renderCohorts();
+            updateRunUi();
+          });
+
+          row.appendChild(dup);
+          row.appendChild(edit);
+          row.appendChild(del);
+          tdActions.appendChild(row);
+
+          tr.appendChild(tdIdx);
+          tr.appendChild(tdName);
+          tr.appendChild(tdStatus);
+          tr.appendChild(tdActions);
+          els.cohortTbody.appendChild(tr);
+        });
+
+        updateRunUi();
+      }
+
+      function updateAddFromTreeBtn() {
+        els.addFromTreeBtn.disabled = !(state.index && state.treeChecks.size > 0);
+      }
+
+      function buildTreeKey(field, value) {
+        return `${field}::${value}`;
+      }
+      function parseTreeKey(key) {
+        const [field, ...rest] = String(key).split("::");
+        return { field, value: rest.join("::") };
+      }
+
+      function renderTreeCheckboxes() {
+        els.treeBox.innerHTML = "";
+        if (!state.index) {
+          els.treeBox.innerHTML = `<div class="muted">Load a file to see the tree.</div>`;
+          updateAddFromTreeBtn();
+          return;
+        }
+
+        const hierarchy = state.index.hierarchy;
+        const themes = Object.keys(hierarchy).sort((a, b) => a.localeCompare(b));
+        if (!themes.length) {
+          els.treeBox.innerHTML = `<div class="muted">No hierarchical annotations found (expected “theme: code _ subcode”).</div>`;
+          updateAddFromTreeBtn();
+          return;
+        }
+
+        for (const theme of themes) {
+          const details = document.createElement("details");
+          details.open = true;
+          const summary = document.createElement("summary");
+
+          const chk = document.createElement("input");
+          chk.type = "checkbox";
+          const key = buildTreeKey("THEME", theme);
+          chk.checked = state.treeChecks.has(key);
+          chk.addEventListener("change", () => {
+            if (chk.checked) state.treeChecks.add(key);
+            else state.treeChecks.delete(key);
+            updateAddFromTreeBtn();
+          });
+
+          const label = document.createElement("div");
+          label.className = "nodeLabel";
+          label.textContent = theme;
+
+          summary.appendChild(chk);
+          summary.appendChild(label);
+          details.appendChild(summary);
+
+          const codes = Object.keys(hierarchy[theme] || {}).sort((a, b) => a.localeCompare(b));
+          for (const code of codes) {
+            const codeDetails = document.createElement("details");
+            codeDetails.open = true;
+            codeDetails.style.marginLeft = "16px";
+
+            const codeSummary = document.createElement("summary");
+            const codeKey = buildTreeKey("CODE", code);
+            const codeChk = document.createElement("input");
+            codeChk.type = "checkbox";
+            codeChk.checked = state.treeChecks.has(codeKey);
+            codeChk.addEventListener("change", () => {
+              if (codeChk.checked) state.treeChecks.add(codeKey);
+              else state.treeChecks.delete(codeKey);
+              updateAddFromTreeBtn();
+            });
+
+            const codeLabel = document.createElement("div");
+            codeLabel.className = "nodeLabel";
+            codeLabel.textContent = code;
+
+            codeSummary.appendChild(codeChk);
+            codeSummary.appendChild(codeLabel);
+            codeDetails.appendChild(codeSummary);
+
+            const subs = Array.from(hierarchy[theme][code] || []).sort((a, b) => a.localeCompare(b));
+            for (const sub of subs) {
+              const row = document.createElement("div");
+              row.className = "nodeRow";
+              row.style.marginLeft = "32px";
+
+              const subKey = buildTreeKey("SUBCODE", sub);
+              const subChk = document.createElement("input");
+              subChk.type = "checkbox";
+              subChk.checked = state.treeChecks.has(subKey);
+              subChk.addEventListener("change", () => {
+                if (subChk.checked) state.treeChecks.add(subKey);
+                else state.treeChecks.delete(subKey);
+                updateAddFromTreeBtn();
+              });
+
+              const subLabel = document.createElement("div");
+              subLabel.className = "nodeLabel";
+              subLabel.textContent = sub;
+
+              row.appendChild(subChk);
+              row.appendChild(subLabel);
+              codeDetails.appendChild(row);
+            }
+
+            details.appendChild(codeDetails);
+          }
+
+          els.treeBox.appendChild(details);
+        }
+
+        updateAddFromTreeBtn();
+      }
+
+      function addCohortsFromTree() {
+        const keys = [...state.treeChecks];
+        const unique = new Map(); // field::value -> {field,value}
+        for (const k of keys) {
+          const parsed = parseTreeKey(k);
+          if (parsed.field !== "THEME" && parsed.field !== "CODE" && parsed.field !== "SUBCODE") continue;
+          if (!parsed.value) continue;
+          unique.set(buildTreeKey(parsed.field, parsed.value), parsed);
+        }
+
+        const existing = new Set(state.cohorts.map((c) => String(c.script ?? "").trim()));
+        let added = 0;
+        for (const { field, value } of unique.values()) {
+          const script = `(${field}='${escapeSingleQuotes(value)}')`;
+          if (existing.has(script)) continue;
+          state.cohorts.push(newCohort({ name: `${field}: ${value}`, script }));
+          existing.add(script);
+          added++;
+        }
+
+        if (added > 0) {
+          state.results = null;
+          renderResults();
+        }
+        renderCohorts();
+        updateRunUi();
+      }
+
+      // ---------------------------
+      // Editor modal + line numbers
+      // ---------------------------
+      function updateLineNumbers() {
+        const text = String(els.scriptInput.value ?? "");
+        const count = Math.max(1, text.split("\n").length);
+        let out = "";
+        for (let i = 1; i <= count; i++) out += i + "\n";
+        els.lineNums.textContent = out;
+        // Keep the numbers aligned with the textarea scroll.
+        els.lineNums.style.transform = `translateY(${-els.scriptInput.scrollTop}px)`;
+      }
+
+      function setEditorError(msg) {
+        if (!msg) {
+          els.editorError.style.display = "none";
+          els.editorError.textContent = "";
+          return;
+        }
+        els.editorError.style.display = "block";
+        els.editorError.textContent = msg;
+      }
+
+      function openEditor(cohortId) {
+        const cohort = state.cohorts.find((c) => c.id === cohortId);
+        if (!cohort) return;
+        state.activeEditorId = cohortId;
+        els.nameInput.value = cohort.name ?? "";
+        els.scriptInput.value = cohort.script ?? "";
+        updateLineNumbers();
+        setEditorError(cohort.valid ? "" : cohort.error);
+        els.editorBackdrop.style.display = "flex";
+        els.scriptInput.focus();
+      }
+
+      function closeEditor() {
+        els.editorBackdrop.style.display = "none";
+        state.activeEditorId = null;
+      }
+
+      function saveEditorToCohort() {
+        const id = state.activeEditorId;
+        if (!id) return;
+        const cohort = state.cohorts.find((c) => c.id === id);
+        if (!cohort) return;
+        cohort.name = String(els.nameInput.value ?? "").trim() || cohort.name;
+        cohort.script = String(els.scriptInput.value ?? "");
+        compileCohort(cohort);
+        setEditorError(cohort.valid ? "" : cohort.error);
+        renderCohorts();
+        updateRunUi();
+      }
+
+      function insertAtCursor(textarea, text) {
+        const start = textarea.selectionStart ?? textarea.value.length;
+        const end = textarea.selectionEnd ?? textarea.value.length;
+        const before = textarea.value.slice(0, start);
+        const after = textarea.value.slice(end);
+        textarea.value = before + text + after;
+        const newPos = start + text.length;
+        textarea.setSelectionRange(newPos, newPos);
+        textarea.focus();
+        updateLineNumbers();
+        saveEditorToCohort();
+      }
+
+      // ---------------------------
+      // Annotation picker (single select)
+      // ---------------------------
+      function openPicker() {
+        if (!state.index) return;
+        state.pickerSelectedKey = null;
+        els.pickerAddBtn.disabled = true;
+        renderPickerTree();
+        els.pickerBackdrop.style.display = "flex";
+      }
+
+      function closePicker() {
+        els.pickerBackdrop.style.display = "none";
+        state.pickerSelectedKey = null;
+        els.pickerAddBtn.disabled = true;
+      }
+
+      function renderPickerTree() {
+        els.pickerTree.innerHTML = "";
+        const hierarchy = state.index?.hierarchy || {};
+        const themes = Object.keys(hierarchy).sort((a, b) => a.localeCompare(b));
+        for (const theme of themes) {
+          const details = document.createElement("details");
+          details.open = true;
+          const summary = document.createElement("summary");
+
+          const key = buildTreeKey("THEME", theme);
+          const label = document.createElement("div");
+          label.className = "nodeLabel";
+          label.textContent = theme;
+          summary.appendChild(label);
+          summary.addEventListener("click", (e) => {
+            // summary click toggles details; selection should be explicit via click on label area
+            e.preventDefault();
+            pickKey(key, summary);
+          });
+
+          details.appendChild(summary);
+
+          const codes = Object.keys(hierarchy[theme] || {}).sort((a, b) => a.localeCompare(b));
+          for (const code of codes) {
+            const codeDetails = document.createElement("details");
+            codeDetails.open = true;
+            codeDetails.style.marginLeft = "16px";
+            const codeSummary = document.createElement("summary");
+            const codeKey = buildTreeKey("CODE", code);
+            const codeLabel = document.createElement("div");
+            codeLabel.className = "nodeLabel";
+            codeLabel.textContent = code;
+            codeSummary.appendChild(codeLabel);
+            codeSummary.addEventListener("click", (e) => {
+              e.preventDefault();
+              pickKey(codeKey, codeSummary);
+            });
+            codeDetails.appendChild(codeSummary);
+
+            const subs = Array.from(hierarchy[theme][code] || []).sort((a, b) => a.localeCompare(b));
+            for (const sub of subs) {
+              const row = document.createElement("div");
+              row.className = "nodeRow";
+              row.style.marginLeft = "32px";
+              const subKey = buildTreeKey("SUBCODE", sub);
+              const subLabel = document.createElement("div");
+              subLabel.className = "nodeLabel";
+              subLabel.textContent = sub;
+              row.appendChild(subLabel);
+              row.addEventListener("click", () => pickKey(subKey, row));
+              codeDetails.appendChild(row);
+            }
+
+            details.appendChild(codeDetails);
+          }
+
+          els.pickerTree.appendChild(details);
+        }
+
+        // Apply selection highlight
+        refreshPickerSelectionStyles();
+      }
+
+      function refreshPickerSelectionStyles() {
+        const apply = (root) => {
+          const nodes = root.querySelectorAll("summary, .nodeRow");
+          nodes.forEach((n) => n.classList.remove("selected"));
+        };
+        apply(els.pickerTree);
+        if (!state.pickerSelectedKey) return;
+      }
+
+      function pickKey(key, el) {
+        state.pickerSelectedKey = key;
+        els.pickerAddBtn.disabled = !key;
+
+        // Clear existing selection styling and mark current
+        els.pickerTree.querySelectorAll("summary, .nodeRow").forEach((n) => n.classList.remove("selected"));
+        el.classList.add("selected");
+      }
+
+      function addPickedToScript() {
+        const key = state.pickerSelectedKey;
+        if (!key) return;
+        const { field, value } = parseTreeKey(key);
+        if (!value) return;
+        insertAtCursor(els.scriptInput, `(${field}='${escapeSingleQuotes(value)}')`);
+        closePicker();
+      }
+
+      // ---------------------------
+      // Results table: sorting + filtering + export
+      // ---------------------------
+      const columns = [
+        { key: "A", label: "A" },
+        { key: "B", label: "B" },
+        { key: "nA", label: "nA", numeric: true },
+        { key: "nB", label: "nB", numeric: true },
+        { key: "n11", label: "n11", numeric: true },
+        { key: "n10", label: "n10", numeric: true },
+        { key: "n01", label: "n01", numeric: true },
+        { key: "n00", label: "n00", numeric: true },
+        { key: "pBA", label: "P(B|A)", numeric: true },
+        { key: "pA", label: "P(A)", numeric: true },
+        { key: "corr", label: "corr", numeric: true },
+      ];
+
+      function formatNumber(key, value) {
+        if (value == null) return "";
+        if (key.startsWith("p") || key === "corr") return Number(value).toFixed(4);
+        return String(value);
+      }
+
+      function currentFilteredSortedRows() {
+        const rows = (state.results?.rows ?? []).slice();
+        const filters = state.filters || {};
+
+        const filtered = rows.filter((r) => {
+          for (const col of columns) {
+            if (!col.numeric) continue;
+            const f = filters[col.key];
+            if (!f) continue;
+            const v = clampNumber(r[col.key]);
+            if (v < f.min || v > f.max) return false;
+          }
+          return true;
+        });
+
+        const { key, dir } = state.sort;
+        const col = columns.find((c) => c.key === key);
+        filtered.sort((a, b) => {
+          const av = a[key];
+          const bv = b[key];
+          if (col?.numeric) {
+            const da = clampNumber(av);
+            const db = clampNumber(bv);
+            return dir === "asc" ? da - db : db - da;
+          }
+          const sa = String(av ?? "");
+          const sb = String(bv ?? "");
+          return dir === "asc" ? sa.localeCompare(sb) : sb.localeCompare(sa);
+        });
+
+        return filtered;
+      }
+
+      function renderResults() {
+        const has = !!state.results;
+        els.resultsTable.style.display = has ? "table" : "none";
+        els.noResults.style.display = has ? "none" : "block";
+        els.exportCsvBtn.disabled = !has;
+        els.exportJsonBtn.disabled = !has;
+        els.exportExcelBtn.disabled = !has;
+        els.tableMeta.textContent = has ? `${state.results.N.toLocaleString()} datapoints` : "";
+        els.resultsHint.textContent = has ? "Hover column header for filter • Click header to sort" : "";
+
+        if (!has) return;
+
+        els.theadRow.innerHTML = "";
+        for (const col of columns) {
+          const th = document.createElement("th");
+          const inner = document.createElement("div");
+          inner.className = "thInner";
+
+          const left = document.createElement("div");
+          left.textContent = col.label;
+          left.style.cursor = "pointer";
+          left.addEventListener("click", () => {
+            if (state.sort.key === col.key) state.sort.dir = state.sort.dir === "asc" ? "desc" : "asc";
+            else {
+              state.sort.key = col.key;
+              state.sort.dir = col.numeric ? "desc" : "asc";
+            }
+            renderResults();
+          });
+
+          if (col.numeric && state.filters[col.key]) {
+            const mark = document.createElement("span");
+            mark.className = "filterMark";
+            mark.title = "Filter applied";
+            mark.textContent = "⎇";
+            left.appendChild(mark);
+          }
+
+          const actions = document.createElement("div");
+          actions.className = "thActions";
+
+          const sortMark = document.createElement("div");
+          sortMark.className = "sortMark";
+          sortMark.textContent = state.sort.key === col.key ? (state.sort.dir === "asc" ? "↑" : "↓") : "";
+          actions.appendChild(sortMark);
+
+          if (col.numeric) {
+            const fBtn = document.createElement("button");
+            fBtn.className = "iconBtn";
+            fBtn.textContent = "⎇";
+            fBtn.title = "Filter";
+            if (state.filters[col.key]) fBtn.classList.add("activeFilter");
+            fBtn.addEventListener("click", (e) => {
+              e.stopPropagation();
+              openFilterPopover(col.key, col.label, fBtn.getBoundingClientRect());
+            });
+            actions.appendChild(fBtn);
+          }
+
+          inner.appendChild(left);
+          inner.appendChild(actions);
+          th.appendChild(inner);
+          els.theadRow.appendChild(th);
+        }
+
+        const rows = currentFilteredSortedRows();
+        els.tbody.innerHTML = "";
+        for (const r of rows) {
+          const tr = document.createElement("tr");
+          for (const col of columns) {
+            const td = document.createElement("td");
+            td.textContent = formatNumber(col.key, r[col.key]);
+            tr.appendChild(td);
+          }
+          els.tbody.appendChild(tr);
+        }
+      }
+
+      function computeColumnRange(key) {
+        const rows = state.results?.rows ?? [];
+        let min = Infinity;
+        let max = -Infinity;
+        for (const r of rows) {
+          const v = clampNumber(r[key]);
+          if (v < min) min = v;
+          if (v > max) max = v;
+        }
+        if (!Number.isFinite(min)) min = 0;
+        if (!Number.isFinite(max)) max = 0;
+        return { min, max };
+      }
+
+      function openFilterPopover(key, label, rect) {
+        state.filterEditingKey = key;
+        const range = computeColumnRange(key);
+        const existing = state.filters[key];
+        const min = existing ? existing.min : range.min;
+        const max = existing ? existing.max : range.max;
+
+        els.filterTitle.textContent = `Filter: ${label}`;
+        els.filterMin.value = String(min);
+        els.filterMax.value = String(max);
+        els.filterPopover.style.display = "block";
+
+        const pad = 8;
+        const top = Math.min(window.innerHeight - 180, rect.bottom + pad);
+        const left = Math.min(window.innerWidth - 280, rect.left);
+        els.filterPopover.style.top = `${top}px`;
+        els.filterPopover.style.left = `${left}px`;
+      }
+
+      function closeFilterPopover() {
+        els.filterPopover.style.display = "none";
+        state.filterEditingKey = null;
+      }
+
+      function applyFilterFromPopover() {
+        const key = state.filterEditingKey;
+        if (!key) return;
+        const min = Number(els.filterMin.value);
+        const max = Number(els.filterMax.value);
+        if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) return;
+        state.filters[key] = { min, max };
+        closeFilterPopover();
+        renderResults();
+      }
+
+      function resetFilterFromPopover() {
+        const key = state.filterEditingKey;
+        if (!key) return;
+        delete state.filters[key];
+        closeFilterPopover();
+        renderResults();
+      }
+
+      function downloadBlob(filename, mime, content) {
+        const blob = new Blob([content], { type: mime });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      function toCsv(rows) {
+        const header = columns.map((c) => c.label);
+        const escape = (v) => {
+          const s = String(v ?? "");
+          if (/[",\n]/.test(s)) return '"' + s.replaceAll('"', '""') + '"';
+          return s;
+        };
+        const lines = [header.map(escape).join(",")];
+        for (const r of rows) lines.push(columns.map((c) => escape(formatNumber(c.key, r[c.key]))).join(","));
+        return lines.join("\n");
+      }
+
+      function toSpreadsheetMlXls(rows) {
+        const esc = (s) =>
+          String(s ?? "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;");
+        const header = columns.map((c) => c.label);
+
+        let xml = "";
+        xml += `<?xml version="1.0"?>\n`;
+        xml += `<?mso-application progid="Excel.Sheet"?>\n`;
+        xml += `<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"\n`;
+        xml += ` xmlns:o="urn:schemas-microsoft-com:office:office"\n`;
+        xml += ` xmlns:x="urn:schemas-microsoft-com:office:excel"\n`;
+        xml += ` xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n`;
+        xml += `<Worksheet ss:Name="cooccurrence">\n<Table>\n`;
+
+        const writeRow = (cells) => {
+          xml += "<Row>";
+          for (const cell of cells) {
+            const isNum = typeof cell === "number" && Number.isFinite(cell);
+            const type = isNum ? "Number" : "String";
+            const value = isNum ? String(cell) : esc(cell);
+            xml += `<Cell><Data ss:Type="${type}">${value}</Data></Cell>`;
+          }
+          xml += "</Row>\n";
+        };
+
+        writeRow(header);
+        for (const r of rows) {
+          writeRow(
+            columns.map((c) => {
+              const v = r[c.key];
+              if (c.numeric) return clampNumber(v);
+              return String(v ?? "");
+            })
+          );
+        }
+
+        xml += `</Table>\n</Worksheet>\n</Workbook>\n`;
+        return xml;
+      }
+
+      // ---------------------------
+      // Compute (async with progress)
+      // ---------------------------
+      async function computeCooccurrence() {
+        const cohortsAll = state.cohorts.slice();
+        const cohorts = cohortsAll.filter((c) => c.valid);
+        const N = state.index.indexed.length;
+        const M = cohorts.length;
+        if (M < 2) return;
+
+        const nA = new Array(M).fill(0);
+        const n11 = Array.from({ length: M }, () => new Array(M).fill(0));
+
+        const t0 = performance.now();
+        let processed = 0;
+        let lastYield = performance.now();
+        const chunkSize = Math.max(50, Math.floor(N / 200));
+
+        els.progress.style.display = "block";
+        els.progress.value = 0;
+        els.progress.max = 1;
+        els.progressText.textContent = "Starting…";
+
+        for (let i = 0; i < N; i++) {
+          const ctx = state.index.indexed[i];
+          const matches = [];
+          for (let j = 0; j < M; j++) {
+            const ok = evalAst(cohorts[j].ast, ctx);
+            if (ok) {
+              nA[j]++;
+              matches.push(j);
+            }
+          }
+          for (let a = 0; a < matches.length; a++) {
+            for (let b = a + 1; b < matches.length; b++) {
+              const j = matches[a];
+              const k = matches[b];
+              n11[j][k]++;
+              n11[k][j]++;
+            }
+          }
+
+          processed++;
+          if (processed % chunkSize === 0) {
+            const now = performance.now();
+            const dt = now - t0;
+            const per = dt / processed;
+            const remaining = (N - processed) * per;
+            els.progress.value = processed / N;
+            els.progressText.textContent = `${processed.toLocaleString()}/${N.toLocaleString()} • ~${Math.max(
+              0,
+              Math.round(remaining / 1000)
+            )}s remaining`;
+
+            if (now - lastYield > 16) {
+              await new Promise((r) => requestAnimationFrame(r));
+              lastYield = performance.now();
+            }
+          }
+        }
+
+        els.progress.value = 1;
+        els.progressText.textContent = `Done in ${Math.round(performance.now() - t0)}ms`;
+        setTimeout(() => {
+          els.progress.style.display = "none";
+        }, 700);
+
+        const rows = [];
+        for (let a = 0; a < M; a++) {
+          for (let b = a + 1; b < M; b++) {
+            const n11ab = n11[a][b];
+            const nAcount = nA[a];
+            const nBcount = nA[b];
+            const n10 = nAcount - n11ab;
+            const n01 = nBcount - n11ab;
+            const n00 = N - n11ab - n10 - n01;
+            const pBA = nAcount ? n11ab / nAcount : 0;
+            const pA = N ? nAcount / N : 0;
+            const corr = phi(n11ab, n10, n01, n00);
+
+            rows.push({
+              A: `${a + 1}. ${cohorts[a].name}`,
+              B: `${b + 1}. ${cohorts[b].name}`,
+              nA: nAcount,
+              nB: nBcount,
+              n11: n11ab,
+              n10,
+              n01,
+              n00,
+              pBA,
+              pA,
+              corr,
+            });
+          }
+        }
+
+        state.results = { cohorts: cohorts.map((c) => ({ name: c.name, script: c.script })), N, rows };
+        renderResults();
+      }
+
+      // ---------------------------
+      // Loading
+      // ---------------------------
+      async function loadJsonText(text, name = "file") {
+        setDataError("");
+        try {
+          const json = JSON.parse(text);
+          const datapoints = extractDatapoints(json);
+          if (!Array.isArray(datapoints)) throw new Error("Datapoints is not an array.");
+          for (const [i, dp] of datapoints.entries()) {
+            if (!isPlainObject(dp)) throw new Error(`Datapoint ${i} is not an object.`);
+            if (!("annotation" in dp)) throw new Error(`Datapoint ${i} missing 'annotation' key.`);
+          }
+
+          state.datapoints = datapoints;
+          state.index = buildIndex(datapoints);
+          state.results = null;
+          state.filters = {};
+          state.sort = { key: "n11", dir: "desc" };
+
+          els.dataStatus.textContent = "Loaded";
+          els.dataMeta.textContent = `${name} • ${datapoints.length.toLocaleString()} datapoints`;
+
+          renderTreeCheckboxes();
+          renderCohorts();
+          renderResults();
+          updateRunUi();
+        } catch (e) {
+          els.dataStatus.textContent = "Load error";
+          els.dataMeta.textContent = "";
+          setDataError(String(e && e.message ? e.message : e));
+          state.datapoints = null;
+          state.index = null;
+          state.results = null;
+          renderTreeCheckboxes();
+          renderCohorts();
+          renderResults();
+          updateRunUi();
+        }
+      }
+
+      // ---------------------------
+      // Wiring
+      // ---------------------------
+      els.openBtn.addEventListener("click", () => els.fileInput.click());
+      els.fileInput.addEventListener("change", async () => {
+        const file = els.fileInput.files && els.fileInput.files[0];
+        if (!file) return;
+        const text = await file.text();
+        await loadJsonText(text, file.name);
+      });
+
+      els.addCohortBtn.addEventListener("click", () => {
+        const c = newCohort({ name: `Cohort ${state.cohorts.length + 1}`, script: "" });
+        state.cohorts.push(c);
+        renderCohorts();
+        updateRunUi();
+        openEditor(c.id);
+      });
+
+      els.addFromTreeBtn.addEventListener("click", () => addCohortsFromTree());
+
+      els.closeEditorBtn.addEventListener("click", closeEditor);
+      els.editorBackdrop.addEventListener("click", closeEditor);
+      els.doneEditorBtn.addEventListener("click", () => {
+        saveEditorToCohort();
+        closeEditor();
+      });
+      els.nameInput.addEventListener("input", saveEditorToCohort);
+      els.scriptInput.addEventListener("input", () => {
+        updateLineNumbers();
+        saveEditorToCohort();
+      });
+      els.scriptInput.addEventListener("scroll", updateLineNumbers);
+
+      els.insAndBtn.addEventListener("click", () => insertAtCursor(els.scriptInput, " AND "));
+      els.insOrBtn.addEventListener("click", () => insertAtCursor(els.scriptInput, " OR "));
+      els.insNotBtn.addEventListener("click", () => insertAtCursor(els.scriptInput, "NOT "));
+      els.insLBtn.addEventListener("click", () => insertAtCursor(els.scriptInput, "("));
+      els.insRBtn.addEventListener("click", () => insertAtCursor(els.scriptInput, ")"));
+      els.openPickerBtn.addEventListener("click", openPicker);
+
+      els.closePickerBtn.addEventListener("click", closePicker);
+      els.pickerBackdrop.addEventListener("click", closePicker);
+      els.pickerAddBtn.addEventListener("click", addPickedToScript);
+
+      els.runBtn.addEventListener("click", async () => {
+        state.results = null;
+        state.filters = {};
+        state.sort = { key: "n11", dir: "desc" };
+        renderResults();
+        await computeCooccurrence();
+      });
+
+      els.exportCsvBtn.addEventListener("click", () => {
+        const rows = currentFilteredSortedRows();
+        downloadBlob("cooccurrence.csv", "text/csv;charset=utf-8", toCsv(rows));
+      });
+      els.exportJsonBtn.addEventListener("click", () => {
+        const rows = currentFilteredSortedRows();
+        const out = { ...state.results, rows };
+        downloadBlob("cooccurrence.json", "application/json;charset=utf-8", JSON.stringify(out, null, 2));
+      });
+      els.exportExcelBtn.addEventListener("click", () => {
+        const rows = currentFilteredSortedRows();
+        downloadBlob("cooccurrence.xls", "application/vnd.ms-excel", toSpreadsheetMlXls(rows));
+      });
+
+      els.filterApplyBtn.addEventListener("click", applyFilterFromPopover);
+      els.filterResetBtn.addEventListener("click", resetFilterFromPopover);
+      document.addEventListener("click", (e) => {
+        if (els.filterPopover.style.display !== "block") return;
+        if (els.filterPopover.contains(e.target)) return;
+        closeFilterPopover();
+      });
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          closeFilterPopover();
+          closePicker();
+          closeEditor();
+        }
+      });
+
+      // Initialize empty UI
+      renderTreeCheckboxes();
+      renderCohorts();
+      renderResults();
+      updateRunUi();
+    </script>
+  </body>
+</html>
