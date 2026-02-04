@@ -437,6 +437,24 @@
         border-radius: 8px;
         padding: 6px 8px;
       }
+      #filterListBox {
+        max-height: 220px;
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: #fff;
+        padding: 6px 8px;
+      }
+      #filterListBox label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        padding: 4px 0;
+      }
+      #filterListBox .muted {
+        padding: 4px 0;
+      }
 
       progress {
         width: 100%;
@@ -485,7 +503,10 @@
       <div class="card" style="flex: 1; min-height: 0">
         <div class="row" style="justify-content: space-between; margin-bottom: 10px">
           <h2 style="margin: 0">Annotation tree</h2>
-          <button id="addFromTreeBtn" class="primary" disabled>Add cohorts</button>
+          <div class="row" style="gap: 8px">
+            <button id="addFromTreeBtn" class="primary" disabled>Add cohorts</button>
+            <button id="clearTreeBtn" disabled>Clear</button>
+          </div>
         </div>
         <div class="muted" style="margin-bottom: 8px">Check items you want as cohorts (themes, codes, or subcodes).</div>
         <div id="treeScroll" class="scrollBox">
@@ -606,15 +627,23 @@
     <!-- Column filter popover -->
     <div id="filterPopover" role="dialog" aria-modal="false">
       <h3 id="filterTitle">Filter</h3>
-      <div class="row">
-        <div class="muted">Min</div>
-        <input id="filterMin" type="number" step="any" />
+      <div id="filterRange">
+        <div class="row">
+          <div class="muted">Min</div>
+          <input id="filterMin" type="number" step="any" />
+        </div>
+        <div class="row">
+          <div class="muted">Max</div>
+          <input id="filterMax" type="number" step="any" />
+        </div>
       </div>
-      <div class="row">
-        <div class="muted">Max</div>
-        <input id="filterMax" type="number" step="any" />
+      <div id="filterList" style="display: none">
+        <div class="muted" style="margin-bottom: 6px">Select items</div>
+        <div id="filterListBox"></div>
       </div>
       <div class="row" style="justify-content: flex-end; margin-top: 8px">
+        <button id="filterSelectAllBtn" style="display: none">Select all</button>
+        <button id="filterClearBtn" style="display: none">Clear</button>
         <button id="filterResetBtn">Reset</button>
         <button id="filterApplyBtn" class="primary">Apply</button>
       </div>
@@ -929,6 +958,7 @@
 
         treeBox: document.getElementById("treeBox"),
         addFromTreeBtn: document.getElementById("addFromTreeBtn"),
+        clearTreeBtn: document.getElementById("clearTreeBtn"),
 
         runBtn: document.getElementById("runBtn"),
         runMeta: document.getElementById("runMeta"),
@@ -968,6 +998,11 @@
         filterTitle: document.getElementById("filterTitle"),
         filterMin: document.getElementById("filterMin"),
         filterMax: document.getElementById("filterMax"),
+        filterRange: document.getElementById("filterRange"),
+        filterList: document.getElementById("filterList"),
+        filterListBox: document.getElementById("filterListBox"),
+        filterSelectAllBtn: document.getElementById("filterSelectAllBtn"),
+        filterClearBtn: document.getElementById("filterClearBtn"),
         filterResetBtn: document.getElementById("filterResetBtn"),
         filterApplyBtn: document.getElementById("filterApplyBtn"),
       };
@@ -1126,7 +1161,10 @@
       }
 
       function updateAddFromTreeBtn() {
-        els.addFromTreeBtn.disabled = !(state.index && state.treeChecks.size > 0);
+        const hasSelections = state.treeChecks.size > 0;
+        const enabled = !!state.index && hasSelections;
+        els.addFromTreeBtn.disabled = !enabled;
+        els.clearTreeBtn.disabled = !enabled;
       }
 
       function buildTreeKey(field, value) {
@@ -1261,6 +1299,12 @@
         }
         renderCohorts();
         updateRunUi();
+      }
+
+      function clearTreeSelections() {
+        if (!state.treeChecks.size) return;
+        state.treeChecks.clear();
+        renderTreeCheckboxes();
       }
 
       // ---------------------------
@@ -1440,8 +1484,8 @@
       // Results table: sorting + filtering + export
       // ---------------------------
       const columns = [
-        { key: "A", label: "A" },
-        { key: "B", label: "B" },
+        { key: "A", label: "A", categorical: true },
+        { key: "B", label: "B", categorical: true },
         { key: "nA", label: "nA", numeric: true },
         { key: "nB", label: "nB", numeric: true },
         { key: "n11", label: "n11", numeric: true },
@@ -1465,11 +1509,15 @@
 
         const filtered = rows.filter((r) => {
           for (const col of columns) {
-            if (!col.numeric) continue;
             const f = filters[col.key];
             if (!f) continue;
-            const v = clampNumber(r[col.key]);
-            if (v < f.min || v > f.max) return false;
+            if (col.numeric) {
+              const v = clampNumber(r[col.key]);
+              if (v < f.min || v > f.max) return false;
+            } else if (col.categorical) {
+              const allowed = Array.isArray(f.values) ? f.values : [];
+              if (!allowed.includes(String(r[col.key] ?? ""))) return false;
+            }
           }
           return true;
         });
@@ -1522,7 +1570,7 @@
             renderResults();
           });
 
-          if (col.numeric && state.filters[col.key]) {
+          if (state.filters[col.key]) {
             const mark = document.createElement("span");
             mark.className = "filterMark";
             mark.title = "Filter applied";
@@ -1538,7 +1586,7 @@
           sortMark.textContent = state.sort.key === col.key ? (state.sort.dir === "asc" ? "↑" : "↓") : "";
           actions.appendChild(sortMark);
 
-          if (col.numeric) {
+          if (col.numeric || col.categorical) {
             const fBtn = document.createElement("button");
             fBtn.className = "iconBtn";
             fBtn.textContent = "⎇";
@@ -1584,16 +1632,65 @@
         return { min, max };
       }
 
+      function computeColumnValues(key) {
+        const rows = state.results?.rows ?? [];
+        const set = new Set();
+        for (const r of rows) set.add(String(r[key] ?? ""));
+        return Array.from(set).sort((a, b) => a.localeCompare(b));
+      }
+
       function openFilterPopover(key, label, rect) {
         state.filterEditingKey = key;
-        const range = computeColumnRange(key);
-        const existing = state.filters[key];
-        const min = existing ? existing.min : range.min;
-        const max = existing ? existing.max : range.max;
-
         els.filterTitle.textContent = `Filter: ${label}`;
-        els.filterMin.value = String(min);
-        els.filterMax.value = String(max);
+        const col = columns.find((c) => c.key === key);
+        if (col?.categorical) {
+          const values = computeColumnValues(key);
+          const existing = state.filters[key];
+          const selected = new Set(
+            existing && Array.isArray(existing.values) ? existing.values.map((v) => String(v)) : values
+          );
+
+          els.filterRange.style.display = "none";
+          els.filterList.style.display = "block";
+          els.filterResetBtn.style.display = "none";
+          els.filterSelectAllBtn.style.display = "inline-block";
+          els.filterClearBtn.style.display = "inline-block";
+
+          els.filterListBox.innerHTML = "";
+          if (!values.length) {
+            const empty = document.createElement("div");
+            empty.className = "muted";
+            empty.textContent = "No items.";
+            els.filterListBox.appendChild(empty);
+          } else {
+            for (const value of values) {
+              const labelEl = document.createElement("label");
+              const chk = document.createElement("input");
+              chk.type = "checkbox";
+              chk.value = value;
+              chk.checked = selected.has(value);
+              labelEl.appendChild(chk);
+              const text = document.createElement("div");
+              text.textContent = value;
+              labelEl.appendChild(text);
+              els.filterListBox.appendChild(labelEl);
+            }
+          }
+        } else {
+          const range = computeColumnRange(key);
+          const existing = state.filters[key];
+          const min = existing ? existing.min : range.min;
+          const max = existing ? existing.max : range.max;
+
+          els.filterRange.style.display = "block";
+          els.filterList.style.display = "none";
+          els.filterResetBtn.style.display = "inline-block";
+          els.filterSelectAllBtn.style.display = "none";
+          els.filterClearBtn.style.display = "none";
+
+          els.filterMin.value = String(min);
+          els.filterMax.value = String(max);
+        }
         els.filterPopover.style.display = "block";
 
         const pad = 8;
@@ -1611,10 +1708,23 @@
       function applyFilterFromPopover() {
         const key = state.filterEditingKey;
         if (!key) return;
-        const min = Number(els.filterMin.value);
-        const max = Number(els.filterMax.value);
-        if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) return;
-        state.filters[key] = { min, max };
+        const col = columns.find((c) => c.key === key);
+        if (col?.categorical) {
+          const all = computeColumnValues(key);
+          const checked = Array.from(els.filterListBox.querySelectorAll("input[type='checkbox']"))
+            .filter((i) => i.checked)
+            .map((i) => String(i.value));
+          if (checked.length === all.length) {
+            delete state.filters[key];
+          } else {
+            state.filters[key] = { values: checked };
+          }
+        } else {
+          const min = Number(els.filterMin.value);
+          const max = Number(els.filterMax.value);
+          if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) return;
+          state.filters[key] = { min, max };
+        }
         closeFilterPopover();
         renderResults();
       }
@@ -1625,6 +1735,11 @@
         delete state.filters[key];
         closeFilterPopover();
         renderResults();
+      }
+
+      function setAllFilterListChecks(checked) {
+        const items = els.filterListBox.querySelectorAll("input[type='checkbox']");
+        for (const item of items) item.checked = checked;
       }
 
       function downloadBlob(filename, mime, content) {
@@ -1856,6 +1971,7 @@
       });
 
       els.addFromTreeBtn.addEventListener("click", () => addCohortsFromTree());
+      els.clearTreeBtn.addEventListener("click", () => clearTreeSelections());
 
       els.closeEditorBtn.addEventListener("click", closeEditor);
       els.editorBackdrop.addEventListener("click", closeEditor);
@@ -1905,6 +2021,8 @@
 
       els.filterApplyBtn.addEventListener("click", applyFilterFromPopover);
       els.filterResetBtn.addEventListener("click", resetFilterFromPopover);
+      els.filterSelectAllBtn.addEventListener("click", () => setAllFilterListChecks(true));
+      els.filterClearBtn.addEventListener("click", () => setAllFilterListChecks(false));
       document.addEventListener("click", (e) => {
         if (els.filterPopover.style.display !== "block") return;
         if (els.filterPopover.contains(e.target)) return;
