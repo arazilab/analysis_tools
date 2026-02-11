@@ -1,8 +1,0 @@
-[
-  { "id": 1, "annotation": ["support: addiction _ generative ai", "risk: overreliance _ chatgpt"] },
-  { "id": 2, "annotation": ["support: addiction _ recovery", "parenting: parenting style _ permissive"] },
-  { "id": 3, "annotation": ["generative ai: adoption _ productivity"] },
-  { "id": 4, "annotation": "support: addiction _ generative ai" },
-  { "id": 5, "annotation": [] }
-]
-
