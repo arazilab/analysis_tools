@@ -5,4 +5,4 @@ This repository contains a collection of lightweight and customizable analysis t
 ## Tools
 
 - `co-occurrence-tool/` — compute co-occurrence statistics between user-defined **cohorts** (boolean scripts over annotations).
-- `data-browser/` — **Data Browser**: run one boolean script over all datapoints and list every datapoint that matches.
+- `data-browser/` — run one boolean script over all datapoints and list every datapoint that matches.
