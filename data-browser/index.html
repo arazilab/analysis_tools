@@ -402,6 +402,7 @@
         color: var(--muted);
         opacity: 0;
         user-select: none;
+        cursor: grab;
       }
 
       .listRow:hover .dragHandle,
@@ -573,7 +574,7 @@
         </div>
         <div class="modalBody">
           <div class="muted" style="margin-bottom: 10px">
-            Select a row, then use <code>&lt;</code> and <code>&gt;</code>. Drag rows in Columns to reorder.
+            Select a row, then use <code>&lt;</code> and <code>&gt;</code>. Drag the <code>::</code> handle in Columns to reorder.
           </div>
           <div class="columnEditorLayout">
             <div class="listPane">
@@ -1216,12 +1217,13 @@
           if (!col) return;
           const row = document.createElement("div");
           row.className = "listRow" + (state.columnEditor.selectedColumnKey === key ? " selected" : "");
-          row.draggable = true;
+          row.draggable = false;
           row.dataset.key = key;
 
           const handle = document.createElement("span");
           handle.className = "dragHandle";
-          handle.textContent = "⋮⋮";
+          handle.textContent = "::";
+          handle.draggable = true;
 
           const label = document.createElement("div");
           label.textContent = col.label;
@@ -1234,9 +1236,10 @@
             state.columnEditor.selectedFieldKey = null;
             renderColumnSettings();
           });
-          row.addEventListener("dragstart", (e) => {
+          handle.addEventListener("dragstart", (e) => {
             state.columnEditor.draggingKey = key;
             e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", key);
           });
           row.addEventListener("dragover", (e) => {
             e.preventDefault();
@@ -1256,7 +1259,7 @@
             state.columnEditor.selectedColumnKey = dragging;
             renderColumnSettings();
           });
-          row.addEventListener("dragend", () => {
+          handle.addEventListener("dragend", () => {
             state.columnEditor.draggingKey = null;
           });
 
