@@ -1,0 +1,1630 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Data Browser</title>
+    <style>
+      :root {
+        --bg: #f5f7fb;
+        --card: #ffffff;
+        --text: #1f2937;
+        --muted: #6b7280;
+        --accent: #2563eb;
+        --accent-soft: #dbeafe;
+        --danger: #dc2626;
+        --ok: #16a34a;
+        --border: #e5e7eb;
+        --shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        color: var(--text);
+        background: radial-gradient(circle at top right, #eef4ff, #f5f7fb 30%);
+        display: grid;
+        grid-template-columns: minmax(340px, 42%) minmax(420px, 58%);
+        gap: 14px;
+        height: 100vh;
+        padding: 14px;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+        padding: 12px;
+      }
+
+      #left-panel,
+      #right-panel {
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      h1,
+      h2 {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 20px;
+      }
+
+      h2 {
+        font-size: 15px;
+      }
+
+      button {
+        border: 1px solid var(--border);
+        background: #fff;
+        border-radius: 9px;
+        padding: 7px 11px;
+        cursor: pointer;
+        color: var(--text);
+      }
+
+      button:hover:not(:disabled) {
+        border-color: #cbd5e1;
+        background: #f8fafc;
+      }
+
+      button:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
+
+      button.primary {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+      }
+
+      button.primary:hover:not(:disabled) {
+        background: #1d4ed8;
+        color: #fff;
+        border-color: #1d4ed8;
+      }
+
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .muted {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .pill {
+        border: 1px solid var(--border);
+        padding: 4px 8px;
+        border-radius: 999px;
+        font-size: 12px;
+        color: var(--muted);
+        background: #f8fafc;
+      }
+
+      .scrollBox {
+        min-height: 0;
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: #fff;
+      }
+
+      #resultsScroll {
+        flex: 1;
+      }
+
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin: 8px 0;
+      }
+
+      .btnGroup {
+        display: inline-flex;
+        gap: 6px;
+      }
+
+      .codeEditor {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+
+      .codeEditorInner {
+        display: grid;
+        grid-template-columns: 44px 1fr;
+        min-height: 180px;
+        max-height: 260px;
+      }
+
+      .lineNums {
+        background: #f8fafc;
+        border-right: 1px solid var(--border);
+        color: var(--muted);
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 12px;
+        line-height: 1.5;
+        text-align: right;
+        padding: 8px 6px;
+        overflow: hidden;
+      }
+
+      .lineNums pre {
+        margin: 0;
+        user-select: none;
+      }
+
+      textarea#scriptInput {
+        width: 100%;
+        height: 100%;
+        border: 0;
+        resize: none;
+        outline: none;
+        padding: 8px;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .editorError {
+        margin-top: 8px;
+        color: var(--danger);
+        font-size: 12px;
+        white-space: pre-wrap;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid var(--border);
+        padding: 8px;
+        text-align: left;
+        vertical-align: top;
+        font-size: 12px;
+      }
+
+      th {
+        position: sticky;
+        top: 0;
+        background: #f8fafc;
+        z-index: 1;
+      }
+
+      th .thInner {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+      }
+
+      th .sortMark {
+        color: var(--muted);
+      }
+
+      td pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 11px;
+        line-height: 1.35;
+      }
+
+      .annotationCell {
+        max-width: 320px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .tagWrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 6px;
+      }
+
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-size: 11px;
+        line-height: 1.2;
+        border: 1px solid transparent;
+      }
+
+      progress {
+        width: 100%;
+        height: 14px;
+      }
+
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.28);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 50;
+      }
+
+      .modal {
+        width: min(560px, 94vw);
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        box-shadow: var(--shadow);
+      }
+
+      #columnModal {
+        width: min(980px, 96vw);
+      }
+
+      .modalHeader {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .modalTitle {
+        font-weight: 600;
+      }
+
+      .modalBody {
+        padding: 12px;
+      }
+
+      .closeX {
+        border: 0;
+        background: transparent;
+        font-size: 16px;
+        line-height: 1;
+      }
+
+      .tree details {
+        margin: 3px 0;
+      }
+
+      .tree summary,
+      .tree .nodeRow {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 6px;
+        border-radius: 8px;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .tree summary:hover,
+      .tree .nodeRow:hover,
+      .tree .selected {
+        background: var(--accent-soft);
+      }
+
+      .nodeLabel {
+        font-size: 12px;
+      }
+
+      .listColSettings {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .colRow {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+        align-items: center;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 6px 8px;
+      }
+
+      .colActions {
+        display: inline-flex;
+        gap: 6px;
+      }
+
+      .mono {
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+      }
+
+      .columnEditorLayout {
+        display: grid;
+        grid-template-columns: minmax(220px, 1fr) 72px minmax(220px, 1fr);
+        gap: 12px;
+        align-items: start;
+      }
+
+      .listPane h3 {
+        margin: 0 0 6px 0;
+        font-size: 14px;
+      }
+
+      .listTable {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: auto;
+        max-height: 320px;
+        background: #fff;
+      }
+
+      .listRow {
+        display: grid;
+        grid-template-columns: 18px 1fr;
+        align-items: center;
+        gap: 8px;
+        min-height: 34px;
+        padding: 6px 8px;
+        border-bottom: 1px solid var(--border);
+        cursor: pointer;
+      }
+
+      .listRow:last-child {
+        border-bottom: 0;
+      }
+
+      .listRow:hover {
+        background: #f8fafc;
+      }
+
+      .listRow.selected {
+        background: var(--accent-soft);
+        outline: 1px solid #93c5fd;
+      }
+
+      .dragHandle {
+        font-size: 13px;
+        color: var(--muted);
+        opacity: 0;
+        user-select: none;
+      }
+
+      .listRow:hover .dragHandle,
+      .listRow.selected .dragHandle {
+        opacity: 1;
+      }
+
+      .transferCol {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        justify-content: center;
+        align-items: stretch;
+        padding-top: 56px;
+      }
+
+      .transferCol button {
+        height: 44px;
+        font-size: 20px;
+      }
+
+      .listEmpty {
+        padding: 8px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      @media (max-width: 900px) {
+        .columnEditorLayout {
+          grid-template-columns: 1fr;
+        }
+
+        .transferCol {
+          flex-direction: row;
+          padding-top: 0;
+          justify-content: flex-end;
+        }
+
+        .transferCol button {
+          width: 56px;
+        }
+      }
+
+      @media (max-width: 1100px) {
+        body {
+          grid-template-columns: 1fr;
+          height: auto;
+          min-height: 100vh;
+        }
+
+        #resultsScroll {
+          max-height: 56vh;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="left-panel">
+      <div class="card">
+        <div class="row" style="justify-content: space-between; margin-bottom: 8px">
+          <h1>Data Browser</h1>
+          <span id="dataStatus" class="pill">No file loaded</span>
+        </div>
+        <div class="row" style="justify-content: space-between">
+          <div class="row">
+            <button id="openBtn">📁 Open</button>
+            <input id="fileInput" type="file" accept=".json,application/json" style="display: none" />
+          </div>
+          <span id="dataMeta" class="muted"></span>
+        </div>
+        <div id="dataError" class="muted" style="color: var(--danger); margin-top: 8px; display: none"></div>
+      </div>
+
+      <div class="card" style="flex: 1; min-height: 0; display: flex; flex-direction: column">
+        <div class="row" style="justify-content: space-between; margin-bottom: 4px">
+          <h2>Query Script</h2>
+          <span id="scriptStatus" class="pill">Empty</span>
+        </div>
+        <div class="toolbar">
+          <button id="openPickerBtn" class="primary" disabled>Annotation picker</button>
+          <div class="btnGroup" aria-label="Insert operators">
+            <button id="insAndBtn">AND</button>
+            <button id="insOrBtn">OR</button>
+            <button id="insNotBtn">NOT</button>
+            <button id="insLBtn">(</button>
+            <button id="insRBtn">)</button>
+          </div>
+        </div>
+        <div class="codeEditor">
+          <div class="codeEditorInner">
+            <div class="lineNums"><pre id="lineNums"></pre></div>
+            <textarea
+              id="scriptInput"
+              spellcheck="false"
+              wrap="off"
+              placeholder="(THEME='support') AND (CODE='addiction')"
+            ></textarea>
+          </div>
+        </div>
+        <div id="editorError" class="editorError" style="display: none"></div>
+        <div class="muted" style="margin-top: 8px">
+          Supported fields: <code>THEME</code>, <code>CODE</code>, <code>SUBCODE</code> with <code>AND</code>,
+          <code>OR</code>, <code>NOT</code>, and parentheses.
+        </div>
+      </div>
+    </div>
+
+    <div id="right-panel">
+      <div class="card">
+        <h2>Run</h2>
+        <div class="row" style="margin-top: 8px">
+          <button id="runBtn" class="primary" disabled>Find matching datapoints</button>
+          <span id="runMeta" class="pill">No data</span>
+        </div>
+        <div style="margin-top: 10px">
+          <progress id="progress" value="0" max="1" style="display: none"></progress>
+          <div id="progressText" class="muted" style="margin-top: 6px"></div>
+        </div>
+      </div>
+
+      <div class="card" style="flex: 1; min-height: 0; display: flex; flex-direction: column">
+        <div class="row" style="justify-content: space-between; margin-bottom: 8px">
+          <h2>Matches</h2>
+          <div class="row">
+            <button id="tableSettingsBtn" disabled>⚙️ Table settings</button>
+            <button id="exportCsvBtn" disabled>Export CSV</button>
+            <button id="exportJsonBtn" disabled>Export JSON</button>
+          </div>
+        </div>
+        <div class="row" style="justify-content: space-between; margin-bottom: 8px">
+          <span id="tableMeta" class="muted"></span>
+          <span id="resultsHint" class="muted"></span>
+        </div>
+        <div id="resultsScroll" class="scrollBox">
+          <table id="resultsTable" style="display: none">
+            <thead>
+              <tr id="theadRow"></tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+          <div id="noResults" class="muted" style="padding: 10px">No results yet.</div>
+        </div>
+      </div>
+    </div>
+
+      <div id="pickerBackdrop" class="modal-backdrop">
+      <div id="pickerModal" class="modal" role="dialog" aria-modal="true" onclick="event.stopPropagation()">
+        <div class="modalHeader">
+          <div class="modalTitle">Pick one annotation</div>
+          <button id="closePickerBtn" class="closeX" aria-label="Close">X</button>
+        </div>
+        <div class="modalBody">
+          <div class="muted" style="margin-bottom: 10px">Click a theme/code/subcode, then press Add.</div>
+          <div class="scrollBox" style="max-height: 360px">
+            <div id="pickerTree" class="tree"></div>
+          </div>
+          <div class="row" style="justify-content: flex-end; margin-top: 10px">
+            <button id="pickerAddBtn" class="primary" disabled>Add</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="columnBackdrop" class="modal-backdrop">
+      <div id="columnModal" class="modal" role="dialog" aria-modal="true" onclick="event.stopPropagation()">
+        <div class="modalHeader">
+          <div class="modalTitle">Table settings</div>
+          <button id="closeColumnBtn" class="closeX" aria-label="Close">X</button>
+        </div>
+        <div class="modalBody">
+          <div class="muted" style="margin-bottom: 10px">
+            Select a row, then use <code>&lt;</code> and <code>&gt;</code>. Drag rows in Columns to reorder.
+          </div>
+          <div class="columnEditorLayout">
+            <div class="listPane">
+              <h3>Columns</h3>
+              <div id="columnsList" class="listTable"></div>
+            </div>
+            <div class="transferCol">
+              <button id="toFieldsBtn" title="Move selected column to Data Fields">&gt;</button>
+              <button id="toColumnsBtn" title="Move selected field to Columns">&lt;</button>
+            </div>
+            <div class="listPane">
+              <h3>Data Fields</h3>
+              <div id="fieldsList" class="listTable"></div>
+            </div>
+          </div>
+          <div class="row" style="justify-content: flex-end; margin-top: 12px">
+            <button id="cancelColumnBtn">Cancel</button>
+            <button id="okColumnBtn" class="primary">OK</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function isPlainObject(value) {
+        return value && typeof value === "object" && !Array.isArray(value);
+      }
+
+      function extractDatapoints(json) {
+        if (Array.isArray(json)) return json;
+        if (isPlainObject(json) && Array.isArray(json.data)) return json.data;
+        if (isPlainObject(json)) {
+          for (const v of Object.values(json)) {
+            if (Array.isArray(v) && v.length && isPlainObject(v[0]) && "annotation" in v[0]) return v;
+          }
+        }
+        throw new Error(
+          "Could not find datapoints array. Expected a JSON array, or an object with a 'data' array (or another array of objects containing 'annotation')."
+        );
+      }
+
+      function normalizeAnnotationValue(value) {
+        if (value == null) return [];
+        if (Array.isArray(value)) return value.map((x) => String(x));
+        return [String(value)];
+      }
+
+      function parseAnnotationString(s) {
+        const raw = String(s ?? "").trim();
+        if (!raw) return { raw, theme: "", code: "", subcode: "" };
+        let theme = "";
+        let code = "";
+        let subcode = "";
+        const colonIdx = raw.indexOf(":");
+        if (colonIdx >= 0) {
+          theme = raw.slice(0, colonIdx).trim();
+          const rest = raw.slice(colonIdx + 1).trim();
+          const parts = rest.split(/\s*_\s*/);
+          code = (parts[0] ?? "").trim();
+          subcode = (parts.slice(1).join(" _ ") ?? "").trim();
+        } else {
+          code = raw;
+        }
+        return { raw, theme, code, subcode };
+      }
+
+      function buildIndex(datapoints) {
+        const indexed = datapoints.map((dp, idx) => {
+          const annList = normalizeAnnotationValue(dp.annotation);
+          const parsed = annList.map(parseAnnotationString);
+          const themeSet = new Set();
+          const codeSet = new Set();
+          const subcodeSet = new Set();
+          for (const a of parsed) {
+            if (a.theme) themeSet.add(a.theme);
+            if (a.code) codeSet.add(a.code);
+            if (a.subcode) subcodeSet.add(a.subcode);
+          }
+          return { idx, original: dp, annotations: parsed, themeSet, codeSet, subcodeSet };
+        });
+
+        const hierarchy = {};
+        for (const ctx of indexed) {
+          for (const a of ctx.annotations) {
+            const t = a.theme || "";
+            const c = a.code || "";
+            const s = a.subcode || "";
+            if (!t) continue;
+            if (!hierarchy[t]) hierarchy[t] = {};
+            if (!c) continue;
+            if (!hierarchy[t][c]) hierarchy[t][c] = new Set();
+            if (s) hierarchy[t][c].add(s);
+          }
+        }
+
+        return { indexed, hierarchy };
+      }
+
+      class ParseError extends Error {
+        constructor(message, index) {
+          super(message);
+          this.name = "ParseError";
+          this.index = typeof index === "number" ? index : 0;
+        }
+      }
+
+      function indexToLineCol(text, idx) {
+        const s = String(text ?? "");
+        const clamped = Math.max(0, Math.min(s.length, idx ?? 0));
+        let line = 1;
+        let col = 1;
+        for (let i = 0; i < clamped; i++) {
+          if (s[i] === "\n") {
+            line++;
+            col = 1;
+          } else {
+            col++;
+          }
+        }
+        return { line, col };
+      }
+
+      function tokenize(input) {
+        const s = String(input ?? "");
+        const tokens = [];
+        let i = 0;
+
+        const isAlpha = (c) => /[A-Za-z_]/.test(c);
+        const isAlnum = (c) => /[A-Za-z0-9_]/.test(c);
+
+        while (i < s.length) {
+          const c = s[i];
+          if (/\s/.test(c)) {
+            i++;
+            continue;
+          }
+          if (c === "(") {
+            tokens.push({ type: "LPAREN", i });
+            i++;
+            continue;
+          }
+          if (c === ")") {
+            tokens.push({ type: "RPAREN", i });
+            i++;
+            continue;
+          }
+          if (c === "=") {
+            tokens.push({ type: "EQ", i });
+            i++;
+            continue;
+          }
+          if (c === "'" || c === '"') {
+            const quote = c;
+            const start = i;
+            i++;
+            let out = "";
+            while (i < s.length) {
+              const ch = s[i];
+              if (ch === "\\") {
+                const next = s[i + 1];
+                if (next == null) break;
+                out += next;
+                i += 2;
+                continue;
+              }
+              if (ch === quote) {
+                i++;
+                tokens.push({ type: "STRING", value: out, i: start });
+                out = null;
+                break;
+              }
+              out += ch;
+              i++;
+            }
+            if (out !== null) throw new ParseError("Unterminated string.", start);
+            continue;
+          }
+          if (isAlpha(c)) {
+            const start = i;
+            i++;
+            while (i < s.length && isAlnum(s[i])) i++;
+            const raw = s.slice(start, i);
+            const upper = raw.toUpperCase();
+            if (upper === "AND" || upper === "OR" || upper === "NOT") tokens.push({ type: upper, i: start });
+            else tokens.push({ type: "IDENT", value: upper, i: start });
+            continue;
+          }
+          throw new ParseError(`Unexpected character '${c}'.`, i);
+        }
+
+        tokens.push({ type: "EOF", i: s.length });
+        return tokens;
+      }
+
+      function parseExpression(input) {
+        const tokens = tokenize(input);
+        let pos = 0;
+
+        const peek = () => tokens[pos];
+        const take = (type) => {
+          const t = tokens[pos];
+          if (t.type !== type) throw new ParseError(`Expected ${type}, got ${t.type}.`, t.i);
+          pos++;
+          return t;
+        };
+
+        const parsePrimary = () => {
+          const t = peek();
+          if (t.type === "LPAREN") {
+            take("LPAREN");
+            const e = parseOr();
+            if (peek().type !== "RPAREN") throw new ParseError("Missing ')'.", peek().i);
+            take("RPAREN");
+            return e;
+          }
+          return parsePredicate();
+        };
+
+        const parsePredicate = () => {
+          const fieldTok = take("IDENT");
+          const field = fieldTok.value;
+          if (field !== "THEME" && field !== "CODE" && field !== "SUBCODE") {
+            throw new ParseError(`Unknown field '${fieldTok.value}'. Use THEME, CODE, or SUBCODE.`, fieldTok.i);
+          }
+          take("EQ");
+          const strTok = take("STRING");
+          return { type: "PRED", field, value: strTok.value };
+        };
+
+        const parseNot = () => {
+          if (peek().type === "NOT") {
+            take("NOT");
+            return { type: "NOT", expr: parseNot() };
+          }
+          return parsePrimary();
+        };
+
+        const parseAnd = () => {
+          let left = parseNot();
+          while (peek().type === "AND") {
+            take("AND");
+            left = { type: "AND", left, right: parseNot() };
+          }
+          return left;
+        };
+
+        const parseOr = () => {
+          let left = parseAnd();
+          while (peek().type === "OR") {
+            take("OR");
+            left = { type: "OR", left, right: parseAnd() };
+          }
+          return left;
+        };
+
+        const expr = parseOr();
+        if (peek().type !== "EOF") throw new ParseError(`Unexpected token ${peek().type}.`, peek().i);
+        return expr;
+      }
+
+      function evalAst(ast, ctx) {
+        switch (ast.type) {
+          case "PRED":
+            if (ast.field === "THEME") return ctx.themeSet.has(ast.value);
+            if (ast.field === "CODE") return ctx.codeSet.has(ast.value);
+            if (ast.field === "SUBCODE") return ctx.subcodeSet.has(ast.value);
+            return false;
+          case "NOT":
+            return !evalAst(ast.expr, ctx);
+          case "AND":
+            return evalAst(ast.left, ctx) && evalAst(ast.right, ctx);
+          case "OR":
+            return evalAst(ast.left, ctx) || evalAst(ast.right, ctx);
+          default:
+            return false;
+        }
+      }
+
+      function escapeSingleQuotes(s) {
+        return String(s ?? "").replaceAll("\\", "\\\\").replaceAll("'", "\\'");
+      }
+
+      const BASE_COLUMNS = [
+        { key: "dp", label: "Datapoint #", numeric: true },
+        { key: "annotations", label: "Annotations" },
+        { key: "json", label: "Datapoint" },
+      ];
+      const DEFAULT_COLUMN_KEYS = BASE_COLUMNS.map((c) => c.key);
+
+      const els = {
+        openBtn: document.getElementById("openBtn"),
+        fileInput: document.getElementById("fileInput"),
+        dataStatus: document.getElementById("dataStatus"),
+        dataMeta: document.getElementById("dataMeta"),
+        dataError: document.getElementById("dataError"),
+
+        scriptInput: document.getElementById("scriptInput"),
+        lineNums: document.getElementById("lineNums"),
+        editorError: document.getElementById("editorError"),
+        scriptStatus: document.getElementById("scriptStatus"),
+
+        openPickerBtn: document.getElementById("openPickerBtn"),
+        insAndBtn: document.getElementById("insAndBtn"),
+        insOrBtn: document.getElementById("insOrBtn"),
+        insNotBtn: document.getElementById("insNotBtn"),
+        insLBtn: document.getElementById("insLBtn"),
+        insRBtn: document.getElementById("insRBtn"),
+
+        pickerBackdrop: document.getElementById("pickerBackdrop"),
+        closePickerBtn: document.getElementById("closePickerBtn"),
+        pickerTree: document.getElementById("pickerTree"),
+        pickerAddBtn: document.getElementById("pickerAddBtn"),
+
+        runBtn: document.getElementById("runBtn"),
+        runMeta: document.getElementById("runMeta"),
+        progress: document.getElementById("progress"),
+        progressText: document.getElementById("progressText"),
+
+        exportCsvBtn: document.getElementById("exportCsvBtn"),
+        exportJsonBtn: document.getElementById("exportJsonBtn"),
+        tableSettingsBtn: document.getElementById("tableSettingsBtn"),
+        tableMeta: document.getElementById("tableMeta"),
+        resultsHint: document.getElementById("resultsHint"),
+        resultsTable: document.getElementById("resultsTable"),
+        theadRow: document.getElementById("theadRow"),
+        tbody: document.getElementById("tbody"),
+        noResults: document.getElementById("noResults"),
+
+        columnBackdrop: document.getElementById("columnBackdrop"),
+        closeColumnBtn: document.getElementById("closeColumnBtn"),
+        cancelColumnBtn: document.getElementById("cancelColumnBtn"),
+        okColumnBtn: document.getElementById("okColumnBtn"),
+        toFieldsBtn: document.getElementById("toFieldsBtn"),
+        toColumnsBtn: document.getElementById("toColumnsBtn"),
+        columnsList: document.getElementById("columnsList"),
+        fieldsList: document.getElementById("fieldsList"),
+      };
+
+      const state = {
+        datapoints: null,
+        index: null,
+        query: { script: "", valid: false, error: "Empty script.", errorLine: 1, ast: null },
+        pickerSelectedKey: null,
+        sort: { key: "dp", dir: "asc" },
+        columns: BASE_COLUMNS.slice(),
+        selectedColumnKeys: DEFAULT_COLUMN_KEYS.slice(),
+        columnEditor: {
+          selectedKeysDraft: [],
+          selectedColumnKey: null,
+          selectedFieldKey: null,
+          draggingKey: null,
+        },
+        results: null,
+      };
+
+      function buildTreeKey(field, value) {
+        return `${field}::${value}`;
+      }
+
+      function parseTreeKey(key) {
+        const [field, ...rest] = String(key).split("::");
+        return { field, value: rest.join("::") };
+      }
+
+      function setDataError(msg) {
+        if (!msg) {
+          els.dataError.style.display = "none";
+          els.dataError.textContent = "";
+          return;
+        }
+        els.dataError.style.display = "block";
+        els.dataError.textContent = msg;
+      }
+
+      function updateLineNumbers() {
+        const text = String(els.scriptInput.value ?? "");
+        const count = Math.max(1, text.split("\n").length);
+        let out = "";
+        for (let i = 1; i <= count; i++) out += i + "\n";
+        els.lineNums.textContent = out;
+        els.lineNums.style.transform = `translateY(${-els.scriptInput.scrollTop}px)`;
+      }
+
+      function setScriptError(msg) {
+        if (!msg) {
+          els.editorError.style.display = "none";
+          els.editorError.textContent = "";
+          return;
+        }
+        els.editorError.style.display = "block";
+        els.editorError.textContent = msg;
+      }
+
+      function compileQuery() {
+        const script = String(els.scriptInput.value ?? "");
+        state.query.script = script;
+        if (!script.trim()) {
+          state.query.valid = false;
+          state.query.error = "Empty script.";
+          state.query.errorLine = 1;
+          state.query.ast = null;
+          els.scriptStatus.textContent = "Empty";
+          setScriptError(state.query.error);
+          updateRunUi();
+          return;
+        }
+        try {
+          state.query.ast = parseExpression(script);
+          state.query.valid = true;
+          state.query.error = "";
+          state.query.errorLine = null;
+          els.scriptStatus.textContent = "Valid";
+          setScriptError("");
+        } catch (e) {
+          state.query.ast = null;
+          state.query.valid = false;
+          const idx = e && typeof e.index === "number" ? e.index : 0;
+          const lc = indexToLineCol(script, idx);
+          state.query.errorLine = lc.line;
+          state.query.error = `${String(e && e.message ? e.message : e)} (line ${lc.line})`;
+          els.scriptStatus.textContent = `Error (line ${lc.line})`;
+          setScriptError(state.query.error);
+        }
+        updateRunUi();
+      }
+
+      function updateRunUi() {
+        const hasData = !!state.index;
+        els.openPickerBtn.disabled = !hasData;
+        els.tableSettingsBtn.disabled = !hasData;
+        els.runBtn.disabled = !(hasData && state.query.valid);
+        if (!hasData) {
+          els.runMeta.textContent = "No data";
+          return;
+        }
+        els.runMeta.textContent = `${state.index.indexed.length.toLocaleString()} datapoints`;
+      }
+
+      function insertAtCursor(textarea, text) {
+        const start = textarea.selectionStart ?? textarea.value.length;
+        const end = textarea.selectionEnd ?? textarea.value.length;
+        const before = textarea.value.slice(0, start);
+        const after = textarea.value.slice(end);
+        textarea.value = before + text + after;
+        const newPos = start + text.length;
+        textarea.setSelectionRange(newPos, newPos);
+        textarea.focus();
+        updateLineNumbers();
+        compileQuery();
+      }
+
+      function openPicker() {
+        if (!state.index) return;
+        state.pickerSelectedKey = null;
+        els.pickerAddBtn.disabled = true;
+        renderPickerTree();
+        els.pickerBackdrop.style.display = "flex";
+      }
+
+      function closePicker() {
+        els.pickerBackdrop.style.display = "none";
+        state.pickerSelectedKey = null;
+        els.pickerAddBtn.disabled = true;
+      }
+
+      function pickKey(key, el) {
+        state.pickerSelectedKey = key;
+        els.pickerAddBtn.disabled = !key;
+        els.pickerTree.querySelectorAll("summary, .nodeRow").forEach((n) => n.classList.remove("selected"));
+        el.classList.add("selected");
+      }
+
+      function renderPickerTree() {
+        els.pickerTree.innerHTML = "";
+        const hierarchy = state.index?.hierarchy || {};
+        const themes = Object.keys(hierarchy).sort((a, b) => a.localeCompare(b));
+        if (!themes.length) {
+          els.pickerTree.innerHTML = `<div class="muted" style="padding: 8px">No hierarchical annotations found.</div>`;
+          return;
+        }
+
+        for (const theme of themes) {
+          const details = document.createElement("details");
+          details.open = true;
+          const summary = document.createElement("summary");
+          const tKey = buildTreeKey("THEME", theme);
+          const tLabel = document.createElement("div");
+          tLabel.className = "nodeLabel";
+          tLabel.textContent = theme;
+          summary.appendChild(tLabel);
+          summary.addEventListener("click", (e) => {
+            e.preventDefault();
+            pickKey(tKey, summary);
+          });
+          details.appendChild(summary);
+
+          const codes = Object.keys(hierarchy[theme] || {}).sort((a, b) => a.localeCompare(b));
+          for (const code of codes) {
+            const codeDetails = document.createElement("details");
+            codeDetails.open = true;
+            codeDetails.style.marginLeft = "16px";
+
+            const codeSummary = document.createElement("summary");
+            const cKey = buildTreeKey("CODE", code);
+            const cLabel = document.createElement("div");
+            cLabel.className = "nodeLabel";
+            cLabel.textContent = code;
+            codeSummary.appendChild(cLabel);
+            codeSummary.addEventListener("click", (e) => {
+              e.preventDefault();
+              pickKey(cKey, codeSummary);
+            });
+            codeDetails.appendChild(codeSummary);
+
+            const subs = Array.from(hierarchy[theme][code] || []).sort((a, b) => a.localeCompare(b));
+            for (const sub of subs) {
+              const row = document.createElement("div");
+              row.className = "nodeRow";
+              row.style.marginLeft = "32px";
+              const sKey = buildTreeKey("SUBCODE", sub);
+              const sLabel = document.createElement("div");
+              sLabel.className = "nodeLabel";
+              sLabel.textContent = sub;
+              row.appendChild(sLabel);
+              row.addEventListener("click", () => pickKey(sKey, row));
+              codeDetails.appendChild(row);
+            }
+
+            details.appendChild(codeDetails);
+          }
+
+          els.pickerTree.appendChild(details);
+        }
+      }
+
+      function addPickedToScript() {
+        const key = state.pickerSelectedKey;
+        if (!key) return;
+        const { field, value } = parseTreeKey(key);
+        if (!value) return;
+        insertAtCursor(els.scriptInput, `(${field}='${escapeSingleQuotes(value)}')`);
+        closePicker();
+      }
+
+      function hashHue(s) {
+        let h = 0;
+        const str = String(s ?? "");
+        for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+        return h % 360;
+      }
+
+      function flattenPaths(value, prefix = "", out = new Set()) {
+        if (!isPlainObject(value)) return out;
+        for (const [k, v] of Object.entries(value)) {
+          const path = prefix ? `${prefix}.${k}` : k;
+          if (path === "annotation") continue;
+          out.add(path);
+          if (isPlainObject(v)) flattenPaths(v, path, out);
+        }
+        return out;
+      }
+
+      function getByPath(obj, path) {
+        const parts = String(path).split(".");
+        let cur = obj;
+        for (const part of parts) {
+          if (cur == null) return undefined;
+          cur = cur[part];
+        }
+        return cur;
+      }
+
+      function refreshColumnsFromData() {
+        const set = new Set();
+        for (const dp of state.datapoints || []) flattenPaths(dp, "", set);
+        const dynamic = Array.from(set)
+          .sort((a, b) => a.localeCompare(b))
+          .map((path) => ({ key: `field:${path}`, label: path, fieldPath: path }));
+        state.columns = [...BASE_COLUMNS, ...dynamic];
+        state.selectedColumnKeys = DEFAULT_COLUMN_KEYS.filter((k) => state.columns.some((c) => c.key === k));
+        if (!state.selectedColumnKeys.length && state.columns.length) state.selectedColumnKeys = [state.columns[0].key];
+      }
+
+      function getColumnDef(key) {
+        return state.columns.find((c) => c.key === key) || null;
+      }
+
+      function visibleColumns() {
+        return state.selectedColumnKeys.map((k) => getColumnDef(k)).filter(Boolean);
+      }
+
+      function valueForColumn(row, col) {
+        if (col.key === "dp") return row.dp;
+        if (col.key === "annotations") return (row.codes || []).join(" | ");
+        if (col.key === "json") return row.json;
+        if (col.fieldPath) {
+          const v = getByPath(row.original, col.fieldPath);
+          if (v == null) return "";
+          if (typeof v === "object") return JSON.stringify(v);
+          return String(v);
+        }
+        return "";
+      }
+
+      function currentRows() {
+        const rows = (state.results?.rows ?? []).slice();
+        const { key, dir } = state.sort;
+        const col = getColumnDef(key);
+        rows.sort((a, b) => {
+          const av = valueForColumn(a, col || { key });
+          const bv = valueForColumn(b, col || { key });
+          if (col?.numeric) return dir === "asc" ? Number(av) - Number(bv) : Number(bv) - Number(av);
+          const na = Number(av);
+          const nb = Number(bv);
+          if (Number.isFinite(na) && Number.isFinite(nb)) return dir === "asc" ? na - nb : nb - na;
+          const sa = String(av ?? "");
+          const sb = String(bv ?? "");
+          return dir === "asc" ? sa.localeCompare(sb) : sb.localeCompare(sa);
+        });
+        return rows;
+      }
+
+      function renderColumnSettings() {
+        const draft = state.columnEditor.selectedKeysDraft;
+        const selectedSet = new Set(draft);
+        const available = state.columns.filter((c) => !selectedSet.has(c.key));
+
+        els.columnsList.innerHTML = "";
+        els.fieldsList.innerHTML = "";
+
+        if (!draft.length) {
+          const empty = document.createElement("div");
+          empty.className = "listEmpty";
+          empty.textContent = "No columns.";
+          els.columnsList.appendChild(empty);
+        }
+
+        draft.forEach((key) => {
+          const col = getColumnDef(key);
+          if (!col) return;
+          const row = document.createElement("div");
+          row.className = "listRow" + (state.columnEditor.selectedColumnKey === key ? " selected" : "");
+          row.draggable = true;
+          row.dataset.key = key;
+
+          const handle = document.createElement("span");
+          handle.className = "dragHandle";
+          handle.textContent = "⋮⋮";
+
+          const label = document.createElement("div");
+          label.textContent = col.label;
+          if (col.fieldPath) label.classList.add("mono");
+
+          row.appendChild(handle);
+          row.appendChild(label);
+          row.addEventListener("click", () => {
+            state.columnEditor.selectedColumnKey = key;
+            state.columnEditor.selectedFieldKey = null;
+            renderColumnSettings();
+          });
+          row.addEventListener("dragstart", (e) => {
+            state.columnEditor.draggingKey = key;
+            e.dataTransfer.effectAllowed = "move";
+          });
+          row.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+          });
+          row.addEventListener("drop", (e) => {
+            e.preventDefault();
+            const dragging = state.columnEditor.draggingKey;
+            if (!dragging || dragging === key) return;
+            const arr = draft.slice();
+            const from = arr.indexOf(dragging);
+            const to = arr.indexOf(key);
+            if (from < 0 || to < 0) return;
+            arr.splice(from, 1);
+            arr.splice(to, 0, dragging);
+            state.columnEditor.selectedKeysDraft = arr;
+            state.columnEditor.selectedColumnKey = dragging;
+            renderColumnSettings();
+          });
+          row.addEventListener("dragend", () => {
+            state.columnEditor.draggingKey = null;
+          });
+
+          els.columnsList.appendChild(row);
+        });
+
+        if (!available.length) {
+          const empty = document.createElement("div");
+          empty.className = "listEmpty";
+          empty.textContent = "No data fields available.";
+          els.fieldsList.appendChild(empty);
+        }
+
+        available.forEach((col) => {
+          const key = col.key;
+          const row = document.createElement("div");
+          row.className = "listRow" + (state.columnEditor.selectedFieldKey === key ? " selected" : "");
+          row.dataset.key = key;
+
+          const spacer = document.createElement("span");
+          spacer.className = "dragHandle";
+          spacer.textContent = "";
+
+          const label = document.createElement("div");
+          label.textContent = col.label;
+          if (col.fieldPath) label.classList.add("mono");
+
+          row.appendChild(spacer);
+          row.appendChild(label);
+          row.addEventListener("click", () => {
+            state.columnEditor.selectedFieldKey = key;
+            state.columnEditor.selectedColumnKey = null;
+            renderColumnSettings();
+          });
+          els.fieldsList.appendChild(row);
+        });
+
+        const canMoveToFields = !!state.columnEditor.selectedColumnKey && draft.length > 1;
+        const canMoveToColumns = !!state.columnEditor.selectedFieldKey;
+        els.toFieldsBtn.disabled = !canMoveToFields;
+        els.toColumnsBtn.disabled = !canMoveToColumns;
+      }
+
+      function moveColumnToFields() {
+        const key = state.columnEditor.selectedColumnKey;
+        const draft = state.columnEditor.selectedKeysDraft;
+        if (!key || draft.length <= 1) return;
+        state.columnEditor.selectedKeysDraft = draft.filter((k) => k !== key);
+        state.columnEditor.selectedFieldKey = key;
+        state.columnEditor.selectedColumnKey = null;
+        renderColumnSettings();
+      }
+
+      function moveFieldToColumns() {
+        const key = state.columnEditor.selectedFieldKey;
+        if (!key) return;
+        if (!state.columnEditor.selectedKeysDraft.includes(key)) {
+          state.columnEditor.selectedKeysDraft = [...state.columnEditor.selectedKeysDraft, key];
+        }
+        state.columnEditor.selectedColumnKey = key;
+        state.columnEditor.selectedFieldKey = null;
+        renderColumnSettings();
+      }
+
+      function openColumnSettings() {
+        state.columnEditor.selectedKeysDraft = state.selectedColumnKeys.slice();
+        state.columnEditor.selectedColumnKey = null;
+        state.columnEditor.selectedFieldKey = null;
+        state.columnEditor.draggingKey = null;
+        renderColumnSettings();
+        els.columnBackdrop.style.display = "flex";
+      }
+
+      function closeColumnSettings() {
+        els.columnBackdrop.style.display = "none";
+      }
+
+      function commitColumnSettings() {
+        const draft = state.columnEditor.selectedKeysDraft.filter((k) => getColumnDef(k));
+        if (!draft.length) return;
+        state.selectedColumnKeys = draft;
+        if (!state.selectedColumnKeys.includes(state.sort.key)) {
+          state.sort.key = state.selectedColumnKeys[0];
+          state.sort.dir = "asc";
+        }
+        closeColumnSettings();
+        renderResults();
+      }
+
+      function renderResults() {
+        const has = !!state.results;
+        els.resultsTable.style.display = has ? "table" : "none";
+        els.noResults.style.display = has ? "none" : "block";
+        els.exportCsvBtn.disabled = !has;
+        els.exportJsonBtn.disabled = !has;
+        els.tableSettingsBtn.disabled = !state.index;
+        els.tableMeta.textContent = has
+          ? `${state.results.matchCount.toLocaleString()} matches / ${state.results.N.toLocaleString()} datapoints`
+          : "";
+        els.resultsHint.textContent = has ? "Click header to sort" : state.index ? "Use ⚙️ to change columns" : "";
+
+        if (!has) return;
+
+        const cols = visibleColumns();
+        if (!cols.some((c) => c.key === state.sort.key)) {
+          state.sort.key = cols[0]?.key || "dp";
+          state.sort.dir = "asc";
+        }
+
+        els.theadRow.innerHTML = "";
+        for (const col of cols) {
+          const th = document.createElement("th");
+          const inner = document.createElement("div");
+          inner.className = "thInner";
+          const label = document.createElement("div");
+          label.style.cursor = "pointer";
+          label.textContent = col.label;
+          label.addEventListener("click", () => {
+            if (state.sort.key === col.key) state.sort.dir = state.sort.dir === "asc" ? "desc" : "asc";
+            else {
+              state.sort.key = col.key;
+              state.sort.dir = col.numeric ? "asc" : "asc";
+            }
+            renderResults();
+          });
+          const mark = document.createElement("div");
+          mark.className = "sortMark";
+          mark.textContent = state.sort.key === col.key ? (state.sort.dir === "asc" ? "↑" : "↓") : "";
+          inner.appendChild(label);
+          inner.appendChild(mark);
+          th.appendChild(inner);
+          els.theadRow.appendChild(th);
+        }
+
+        const rows = currentRows();
+        els.tbody.innerHTML = "";
+        for (const r of rows) {
+          const tr = document.createElement("tr");
+          for (const col of cols) {
+            const td = document.createElement("td");
+            if (col.key === "annotations") {
+              td.className = "annotationCell";
+              if (Array.isArray(r.codes) && r.codes.length) {
+                const tags = document.createElement("div");
+                tags.className = "tagWrap";
+                for (const code of r.codes) {
+                  const tag = document.createElement("span");
+                  tag.className = "tag";
+                  const hue = hashHue(code);
+                  tag.style.background = `hsl(${hue} 95% 92%)`;
+                  tag.style.borderColor = `hsl(${hue} 75% 75%)`;
+                  tag.style.color = `hsl(${hue} 45% 28%)`;
+                  tag.textContent = code;
+                  tags.appendChild(tag);
+                }
+                td.appendChild(tags);
+              }
+            } else if (col.key === "json") {
+              const pre = document.createElement("pre");
+              pre.textContent = r.json;
+              td.appendChild(pre);
+            } else {
+              td.textContent = valueForColumn(r, col);
+            }
+            tr.appendChild(td);
+          }
+
+          els.tbody.appendChild(tr);
+        }
+      }
+
+      function downloadBlob(filename, mime, content) {
+        const blob = new Blob([content], { type: mime });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      function toCsv(rows) {
+        const cols = visibleColumns();
+        const header = cols.map((c) => c.label);
+        const escape = (v) => {
+          const s = String(v ?? "");
+          if (/[",\n]/.test(s)) return '"' + s.replaceAll('"', '""') + '"';
+          return s;
+        };
+        const lines = [header.map(escape).join(",")];
+        for (const r of rows) lines.push(cols.map((c) => escape(valueForColumn(r, c))).join(","));
+        return lines.join("\n");
+      }
+
+      async function computeMatches() {
+        if (!state.index || !state.query.valid) return;
+
+        const N = state.index.indexed.length;
+        const rows = [];
+        const t0 = performance.now();
+        let processed = 0;
+        let lastYield = performance.now();
+        const chunkSize = Math.max(50, Math.floor(N / 200));
+
+        els.progress.style.display = "block";
+        els.progress.value = 0;
+        els.progress.max = 1;
+        els.progressText.textContent = "Starting...";
+
+        for (let i = 0; i < N; i++) {
+          const ctx = state.index.indexed[i];
+          if (evalAst(state.query.ast, ctx)) {
+            const annotationList = ctx.annotations.map((a) => a.raw).filter(Boolean);
+            const codes = Array.from(new Set(ctx.annotations.map((a) => a.code).filter(Boolean)));
+            rows.push({
+              dp: ctx.idx + 1,
+              annotations: annotationList,
+              codes,
+              json: JSON.stringify(ctx.original, null, 2),
+              original: ctx.original,
+            });
+          }
+
+          processed++;
+          if (processed % chunkSize === 0) {
+            const now = performance.now();
+            const dt = now - t0;
+            const per = dt / processed;
+            const remaining = (N - processed) * per;
+            els.progress.value = processed / N;
+            els.progressText.textContent = `${processed.toLocaleString()}/${N.toLocaleString()} • ~${Math.max(
+              0,
+              Math.round(remaining / 1000)
+            )}s remaining`;
+
+            if (now - lastYield > 16) {
+              await new Promise((r) => requestAnimationFrame(r));
+              lastYield = performance.now();
+            }
+          }
+        }
+
+        els.progress.value = 1;
+        els.progressText.textContent = `Done in ${Math.round(performance.now() - t0)}ms`;
+        setTimeout(() => {
+          els.progress.style.display = "none";
+        }, 700);
+
+        state.results = {
+          script: state.query.script,
+          N,
+          matchCount: rows.length,
+          rows,
+        };
+        renderResults();
+      }
+
+      async function loadJsonText(text, name = "file") {
+        setDataError("");
+        try {
+          const json = JSON.parse(text);
+          const datapoints = extractDatapoints(json);
+          if (!Array.isArray(datapoints)) throw new Error("Datapoints is not an array.");
+          for (const [i, dp] of datapoints.entries()) {
+            if (!isPlainObject(dp)) throw new Error(`Datapoint ${i} is not an object.`);
+            if (!("annotation" in dp)) throw new Error(`Datapoint ${i} missing 'annotation' key.`);
+          }
+
+          state.datapoints = datapoints;
+          state.index = buildIndex(datapoints);
+          refreshColumnsFromData();
+          state.results = null;
+          state.sort = { key: "dp", dir: "asc" };
+
+          els.dataStatus.textContent = "Loaded";
+          els.dataMeta.textContent = `${name} • ${datapoints.length.toLocaleString()} datapoints`;
+
+          compileQuery();
+          renderResults();
+        } catch (e) {
+          els.dataStatus.textContent = "Load error";
+          els.dataMeta.textContent = "";
+          setDataError(String(e && e.message ? e.message : e));
+          state.datapoints = null;
+          state.index = null;
+          state.columns = BASE_COLUMNS.slice();
+          state.selectedColumnKeys = DEFAULT_COLUMN_KEYS.slice();
+          state.results = null;
+          renderResults();
+          updateRunUi();
+        }
+      }
+
+      els.openBtn.addEventListener("click", () => els.fileInput.click());
+      els.fileInput.addEventListener("change", async () => {
+        const file = els.fileInput.files && els.fileInput.files[0];
+        if (!file) return;
+        const text = await file.text();
+        await loadJsonText(text, file.name);
+      });
+
+      els.scriptInput.addEventListener("input", () => {
+        updateLineNumbers();
+        compileQuery();
+      });
+      els.scriptInput.addEventListener("scroll", updateLineNumbers);
+
+      els.insAndBtn.addEventListener("click", () => insertAtCursor(els.scriptInput, " AND "));
+      els.insOrBtn.addEventListener("click", () => insertAtCursor(els.scriptInput, " OR "));
+      els.insNotBtn.addEventListener("click", () => insertAtCursor(els.scriptInput, "NOT "));
+      els.insLBtn.addEventListener("click", () => insertAtCursor(els.scriptInput, "("));
+      els.insRBtn.addEventListener("click", () => insertAtCursor(els.scriptInput, ")"));
+      els.openPickerBtn.addEventListener("click", openPicker);
+
+      els.closePickerBtn.addEventListener("click", closePicker);
+      els.pickerBackdrop.addEventListener("click", closePicker);
+      els.pickerAddBtn.addEventListener("click", addPickedToScript);
+
+      els.runBtn.addEventListener("click", async () => {
+        state.results = null;
+        renderResults();
+        await computeMatches();
+      });
+
+      els.exportCsvBtn.addEventListener("click", () => {
+        const rows = currentRows();
+        downloadBlob("matches.csv", "text/csv;charset=utf-8", toCsv(rows));
+      });
+
+      els.exportJsonBtn.addEventListener("click", () => {
+        const cols = visibleColumns();
+        const rows = currentRows().map((r) => {
+          const obj = {};
+          for (const col of cols) obj[col.label] = valueForColumn(r, col);
+          obj.original = r.original;
+          return obj;
+        });
+        const out = {
+          script: state.results?.script ?? "",
+          N: state.results?.N ?? 0,
+          matchCount: rows.length,
+          columns: cols.map((c) => c.label),
+          rows,
+        };
+        downloadBlob("matches.json", "application/json;charset=utf-8", JSON.stringify(out, null, 2));
+      });
+
+      els.tableSettingsBtn.addEventListener("click", openColumnSettings);
+      els.closeColumnBtn.addEventListener("click", closeColumnSettings);
+      els.columnBackdrop.addEventListener("click", closeColumnSettings);
+      els.cancelColumnBtn.addEventListener("click", closeColumnSettings);
+      els.okColumnBtn.addEventListener("click", commitColumnSettings);
+      els.toFieldsBtn.addEventListener("click", moveColumnToFields);
+      els.toColumnsBtn.addEventListener("click", moveFieldToColumns);
+
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          closePicker();
+          closeColumnSettings();
+        }
+      });
+
+      updateLineNumbers();
+      compileQuery();
+      renderResults();
+      updateRunUi();
+    </script>
+  </body>
+</html>
